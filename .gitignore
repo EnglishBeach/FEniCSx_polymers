@@ -1,7 +1,2 @@
 .vscode
 .mypy_cache
-FEniCSx Tutorial/Heat equation/Heat_Files
-FEniCSx Tutorial/Elasticity/Elasticity_files
-FEniCSx Tutorial/Deflection/Deflection_files
-FEniCSx Tutorial/Poisson/3.3Poisson_Exe_marker_Files
-FEniCSx Tutorial/Poisson/3.4Poisson_Int_marker_Files
