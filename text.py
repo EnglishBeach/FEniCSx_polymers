@@ -128,7 +128,7 @@ class NonlinearProblem:
     """
 
     def __init__(self, F: ufl.form.Form, u: _Function, bcs: typing.List[DirichletBCMetaClass] = [],
-                 J: ufl.form.Form = None, form_compiler_params={}, jit_params={}):
+                 J: ufl.form.Form = None, form_compiler_params={}, jit_params={},):
         """Initialize solver for solving a non-linear problem using Newton's method, :math:`dF/du(u) du = -F(u)`.
 
         Args:
