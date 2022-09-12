@@ -1,16 +1,18 @@
-# %%
+# Saving and type checking
+import shutil
+import typing
 # Solving
 import dolfinx
 from dolfinx import mesh, fem, io, nls
 from dolfinx.fem import FunctionSpace, VectorFunctionSpace
 from mpi4py import MPI
 import numpy as np
-# Saving and type checking
-import shutil
+
 # Operators
 import ufl
-from ufl import TrialFunction, TestFunction,TrialFunctions,TestFunctions, FacetNormal, SpatialCoordinate,variable
-from ufl import dx, ds, exp, sym, tr, sqrt
+from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions
+from ufl import FacetNormal, SpatialCoordinate, variable
+from ufl import exp, sym, tr, sqrt
 from ufl import diff as D
 from ufl import nabla_div, nabla_grad, grad, div
 from ufl import as_matrix as matrix
@@ -63,9 +65,8 @@ def I(func_like):
 
 # Post processing:
 
-
+# TODO: Make for all dims
 def errors_L(space, uS, uEx):
-    # Fix it for vectors
     """Compute error norm on boundary
 
     Args:
@@ -84,7 +85,7 @@ def errors_L(space, uS, uEx):
     L2_err = np.sqrt(domain.comm.allreduce(L2_scalar, op=MPI.SUM))
     return (L1_err, L2_err)
 
-
+# TODO: Make for all dims
 def line_collision(domain, line_cord):
     """Generate points and cells of colliding domain and line
 
@@ -112,7 +113,7 @@ def line_collision(domain, line_cord):
 
     return (points_on_line, cells_on_line)
 
-
+# TODO: make all graphs in class
 def graph2D(fig, lists, natural_show=False, points_on=False):
     """Create graph from fem.Function
 
@@ -129,15 +130,16 @@ def graph2D(fig, lists, natural_show=False, points_on=False):
         z_data = data[:, 2]
         return [x_data, y_data, z_data]
 
-    for list in lists:
+    for lis in lists:
         fig, ax = plt.subplots()
         plt.close()
-        u, ax, title = list
+        u, ax, title = lis
         dofs = u.function_space.tabulate_dof_coordinates()
         ax.set_title(title)
         data = data_construct(dofs, u.x.array)
 
-        if points_on: ax.plot(data[0], data[1], 'o', markersize=2, color='grey')
+        if points_on:
+            ax.plot(data[0], data[1], 'o', markersize=2, color='grey')
 
         if natural_show:
             plot = ax.tripcolor(*data)
@@ -215,7 +217,8 @@ def DirichletBC(space, form, combined_marker):
         combined_marker (Any): One from next
         \nFunction - boundary marker function find geometrical
         \nAll - all boundary find entities
-        \n(mesh.meshtags, marker) - list or tuple, marker of boundary from Marked_facets - mesh.meshtags find entities
+        \n(mesh.meshtags, marker) - list or tuple, marker of boundary
+        from Marked_facets - mesh.meshtags find entities
 
     Returns:
         condition (dirichletbc): Dirichlet condition
@@ -231,8 +234,10 @@ def DirichletBC(space, form, combined_marker):
             bc = fem.dirichletbc(V=space, dofs=dofs, value=form)
         return bc
 
-    if type(space) == (tuple or list): space0 = space[0]
-    else: space0 = space
+    if isinstance(space, tuple) or isinstance(space, list):
+        space0 = space[0]
+    else:
+        space0 = space
     domain = space0.mesh
 
     if combined_marker == 'All':
@@ -243,7 +248,7 @@ def DirichletBC(space, form, combined_marker):
             facets,
             )
 
-    elif type(combined_marker) == (tuple or list):
+    elif isinstance(combined_marker, tuple or list):
         marked_facets, marker = combined_marker
         facets = marked_facets.find(marker)
         dofs = fem.locate_dofs_topological(
@@ -267,7 +272,8 @@ def Function(space, form=None):
         space (FunctionSpace): New space
         form (): Any form:
     \nScalars - fem.Function,fem.Constant, ufl_function, callable function, number
-    \nVectors - fem.vector_Function,fem.vector_Constant, ufl_vector_function, callable vector_function, tuple_number
+    \nVectors - fem.vector_Function,fem.vector_Constant, ufl_vector_function,
+    callable vector_function, tuple_number
 
     Returns:
         fem.Function: Function
@@ -280,7 +286,8 @@ def Function(space, form=None):
             function (fem.Function): _description_
             form (any form):
         \nScalars - fem.Function,fem.Constant, ufl_function, callable function, number
-        \nVectors - fem.vector_Function,fem.vector_Constant, ufl_vector_function, callable vector_function, tuple_number
+        \nVectors - fem.vector_Function,fem.vector_Constant, ufl_vector_function,
+        callable vector_function, tuple_number
 
         Returns:
             fem.Function: Interpolated fem.Function
@@ -334,7 +341,7 @@ def Function(space, form=None):
 
     function = fem.Function(space)
 
-    if form == None:
+    if form is None:
         return function
     else:
         interpolate(function=function, form=form)
@@ -362,14 +369,18 @@ class LinearProblem:
         Args:
             a (ufl.Form): bilinear form
             L (ufl.Form): linear form
-            bcs (Dirichlet): Dirichlet conditious. Defaults to [].
-            u (fem.Function): Function to be solved. Defaults to None.
-            petsc_options (dict): Options to petsc. Defaults to { 'ksp_type': 'preonly', 'pc_type': 'lu' }.
-            assemble_options (dict): Options to assemble bilinear and linear forms.
+            bcs (Dirichlet): Dirichlet conditious.
+            \nu (fem.Function): Function to be solved. Defaults to None.
+            \npetsc_options (dict): Options to petsc.
+            Defaults to { 'ksp_type': 'preonly', 'pc_type': 'lu' }.
+            \nassemble_options (dict): Options to assemble bilinear and linear forms.
             Defaults to {'assebmle_A': True, 'assemble_B': True}.
-            ghost_opions (dict): GhostUpdate potions. Defaults to  {'addv': ADD,'mode': REVERSE}.
-            form_compiler_params (dict): Form compiler options. Defaults to {}.
-            jit_params (dict): JIT parmetrs. Defaults to {}.
+            \nghost_opions (dict): GhostUpdate potions.
+            Defaults to  {'addv': ADD,'mode': REVERSE}.
+            \nform_compiler_params (dict): Form compiler options.
+            Defaults to {}.
+            \njit_params (dict): JIT parmetrs.
+            Defaults to {}.
         """
 
     def __init__(
@@ -541,7 +552,8 @@ class NonlinearProblem:
             \njit_params (dict): JIT parmetrs.
             Defaults to {}.
         """
-    import typing
+
+
 
     def __init__(
         self,
@@ -630,11 +642,9 @@ class NonlinearProblem:
         """The compiled bilinear form"""
         return self._a
 
-
-# %%
+# Task
 N = 50
 
-# %%
 domain = mesh.create_unit_square(
     nx=N, ny=N, comm=MPI.COMM_WORLD, cell_type=mesh.CellType.triangle
     )
@@ -651,19 +661,16 @@ cN, cP = split(s)
 cN0, cP0 = split(s0)
 
 save_dir = '/home/VTK/FUCK_files'
-
-# %%
 Nt = 1000
 
 # dt = 0.05
 # T = Nt * dt
 
 T = 20
-dt =T/Nt
-
+dt = T / Nt
 
 N_checks = 100
-check_every = Nt/N_checks
+check_every = Nt / N_checks
 
 s.sub(0).interpolate(lambda x: 0.2 + x[0] - x[0])
 s.sub(1).interpolate(lambda x: 0.001 + x[0] - x[0])
@@ -674,19 +681,26 @@ e = 0.01
 b = 0.01
 g = 4
 p1 = 0.13
-# lambda x: np.where(
-#     npand(
-#         npand(x[0] <0.5 0.3, x[0] < 0.6),
-#         npand(x[1] > 0.4, x[1] < 0.5),
-#         ),
-light_f = lambda x: np.where(
-    npand(x[0]<0.5,x[1]<0.5
-        ),
-    1,
-    0,
-    )
 
-# %%
+
+# lambda x:
+def light_f(x):
+    # np.where(
+    #     npand(
+    #         npand(x[0] <0.5, 0.3, x[0] < 0.6),
+    #         npand(x[1] > 0.4, x[1] < 0.5)
+    #     ),
+    #     1,
+    #     0,
+    #     )
+    result = np.where(
+        npand(x[0] < 0.5, x[1] < 0.5),
+        1,
+        0,
+        )
+    return result
+
+
 light = Function(W.sub(1).collapse()[0], light_f)
 
 f = g * (1-cP-cN) * (-ufl.ln((1-cP-cN) / (1-cN)))**((g-1) / g)
@@ -715,7 +729,6 @@ F2 += -light * f * v * dx
 
 F = F1 + F2
 
-# %%
 problem = NonlinearProblem(
     F=F,
     bcs=[],
@@ -727,7 +740,6 @@ problem = NonlinearProblem(
         }
     )
 
-# %%
 cNS = s.sub(0)
 cPS = s.sub(1)
 cNS.name = 'C neutral'
@@ -741,7 +753,7 @@ with io.XDMFFile(domain.comm, save_dir + '/Fuck.xdmf', 'w') as file:
     file.write_mesh(domain)
     file.write_function(cNS, 0)
     file.write_function(cPS, 0)
-    file.write_function(light,0)
+    file.write_function(light, 0)
     s0.interpolate(s)
     for time in tqdm(desc='Solving PDE', iterable=np.arange(0, T, dt)):
         s = problem.solve()
@@ -749,15 +761,13 @@ with io.XDMFFile(domain.comm, save_dir + '/Fuck.xdmf', 'w') as file:
         if (time/dt) % check_every == 0:
             file.write_function(cNS, time + dt)
             file.write_function(cPS, time + dt)
-            file.write_function(light,time + dt)
+            file.write_function(light, time + dt)
 
-# %%
 W0 = W.sub(0).collapse()[0]
-light_col = Function(W0,light)
+light_col = Function(W0, light)
 cNS_col = Function(W0, cNS)
 cPS_col = Function(W0, cPS)
 cMS_col = Function(W0, 1 - cNS_col - cPS_col)
-
 
 print(f'(FDM1) CFL: {a*N**2*dt}')
 print(f"Norm of polimer: {cPS_col.x.norm():.2f}")

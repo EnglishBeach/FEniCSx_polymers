@@ -1,0 +1,24 @@
+{
+    "python.linting.pylintEnabled": true,
+    "python.linting.mypyEnabled": false,
+    "python.linting.enabled": false,
+    "python.formatting.provider": "yapf",
+    "python.linting.flake8Enabled": false,
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportUndefinedVariable": "error",
+        "reportPropertyTypeMismatch": "error",
+        "reportMissingImports": "error",
+
+        "reportDuplicateImport": "warning",
+        "reportImportCycles": "warning",
+        "reportPrivateUsage": "warning",
+        "reportPrivateImportUsage": "warning",
+        "reportAssertAlwaysTrue":"warning",
+        "reportInvalidTypeVarUse": "warning",
+
+        "reportUnnecessaryIsInstance": "information",
+        "reportSelfClsParameterName": "information",
+        "reportImplicitStringConcatenation": "information",
+        "reportInvalidStringEscapeSequence": "information",
+        }
+}
