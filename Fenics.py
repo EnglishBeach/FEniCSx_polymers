@@ -1,22 +1,20 @@
-# Saving and type checking
-import shutil
-import typing
 # Solving
 import dolfinx
 from dolfinx import mesh, fem, io, nls
 from dolfinx.fem import FunctionSpace, VectorFunctionSpace
 from mpi4py import MPI
 import numpy as np
-
+# Saving and type checking
+import shutil
 # Operators
 import ufl
 from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions
 from ufl import FacetNormal, SpatialCoordinate, variable
-from ufl import exp, sym, tr, sqrt
 from ufl import diff as D
 from ufl import nabla_div, nabla_grad, grad, div
 from ufl import as_matrix as matrix
 from ufl import lhs, rhs, split
+from ufl import exp, sym, tr, sqrt, ln, sin, cos
 # Graphics
 import matplotlib.pyplot as plt
 # Logging
@@ -42,13 +40,12 @@ class Infix:
 dot = Infix(ufl.dot)
 inner = Infix(ufl.inner)
 
+npor = Infix(np.logical_or)
+npand = Infix(np.logical_and)
+
 
 def vector(*args):
     return ufl.as_vector(tuple(args))
-
-
-npor = Infix(np.logical_or)
-npand = Infix(np.logical_and)
 
 
 def I(func_like):
@@ -61,101 +58,6 @@ def I(func_like):
         Tensor: Identity
     """
     return ufl.Identity(func_like.geometric_dimension())
-
-
-# Post processing:
-
-# TODO: Make for all dims
-def errors_L(space, uS, uEx):
-    """Compute error norm on boundary
-
-    Args:
-        uS (Function): Numeric solution
-        uEx (Function): Exact or model solution
-
-    Returns:
-        List: L1 and L2 norms
-    """
-    domain = space.mesh
-
-    L1_scalar = fem.assemble_scalar(fem.form((uS-uEx) * dx))
-    L2_scalar = fem.assemble_scalar(fem.form((uS - uEx)**2 * dx))
-
-    L1_err = np.abs(domain.comm.allreduce(L1_scalar, op=MPI.SUM))
-    L2_err = np.sqrt(domain.comm.allreduce(L2_scalar, op=MPI.SUM))
-    return (L1_err, L2_err)
-
-# TODO: Make for all dims
-def line_collision(domain, line_cord):
-    """Generate points and cells of colliding domain and line
-
-    Args:
-        domain (mesh): Domain
-        line_cord (array): 3D line contervertor of coordinates
-
-    Returns:
-        Tuple: Collision points and collision cells
-    """
-    bb_tree = dolfinx.geometry.BoundingBoxTree(domain, domain.topology.dim)
-
-    cells_on_line = []
-    points_on_line = []
-    cell_candidates = dolfinx.geometry.compute_collisions(bb_tree, line_cord.T)
-    colliding_cells = dolfinx.geometry.compute_colliding_cells(
-        domain, cell_candidates, line_cord.T
-        )
-    for i, point in enumerate(line_cord.T):
-        if len(colliding_cells.links(i)) > 0:
-            points_on_line.append(point)
-            cells_on_line.append(colliding_cells.links(i)[0])
-
-    points_on_line = np.array(points_on_line, dtype=np.float64)
-
-    return (points_on_line, cells_on_line)
-
-# TODO: make all graphs in class
-def graph2D(fig, lists, natural_show=False, points_on=False):
-    """Create graph from fem.Function
-
-    Args:
-        fig (plt.Figure): Figure
-        lists (fem.Function , plt.Axes, str): List of (u, curent axes, title)
-        method (bool): Graph method True = tripcolor, False = tricontourf
-    """
-
-    def data_construct(dofs, x_array):
-        data = np.column_stack((dofs[:, 0:2], x_array))
-        x_data = data[:, 0]
-        y_data = data[:, 1]
-        z_data = data[:, 2]
-        return [x_data, y_data, z_data]
-
-    for lis in lists:
-        fig, ax = plt.subplots()
-        plt.close()
-        u, ax, title = lis
-        dofs = u.function_space.tabulate_dof_coordinates()
-        ax.set_title(title)
-        data = data_construct(dofs, u.x.array)
-
-        if points_on:
-            ax.plot(data[0], data[1], 'o', markersize=2, color='grey')
-
-        if natural_show:
-            plot = ax.tripcolor(*data)
-        else:
-            try:
-                levels = np.linspace(u.x.array.min(), u.x.array.max(), 10)
-                plot = ax.tricontourf(
-                    *data,
-                    levels=levels,
-                    )
-            except:
-                print(f'{title} - error')
-
-        ax.set_aspect(1)
-        fig.colorbar(plot, ax=ax)
-    return
 
 
 # Functions:
@@ -217,8 +119,7 @@ def DirichletBC(space, form, combined_marker):
         combined_marker (Any): One from next
         \nFunction - boundary marker function find geometrical
         \nAll - all boundary find entities
-        \n(mesh.meshtags, marker) - list or tuple, marker of boundary
-        from Marked_facets - mesh.meshtags find entities
+        \n(mesh.meshtags, marker) - list or tuple, marker of boundary from Marked_facets - mesh.meshtags find entities
 
     Returns:
         condition (dirichletbc): Dirichlet condition
@@ -234,10 +135,8 @@ def DirichletBC(space, form, combined_marker):
             bc = fem.dirichletbc(V=space, dofs=dofs, value=form)
         return bc
 
-    if isinstance(space, tuple) or isinstance(space, list):
-        space0 = space[0]
-    else:
-        space0 = space
+    if type(space) == (tuple or list): space0 = space[0]
+    else: space0 = space
     domain = space0.mesh
 
     if combined_marker == 'All':
@@ -248,7 +147,7 @@ def DirichletBC(space, form, combined_marker):
             facets,
             )
 
-    elif isinstance(combined_marker, tuple or list):
+    elif type(combined_marker) == (tuple or list):
         marked_facets, marker = combined_marker
         facets = marked_facets.find(marker)
         dofs = fem.locate_dofs_topological(
@@ -272,8 +171,7 @@ def Function(space, form=None):
         space (FunctionSpace): New space
         form (): Any form:
     \nScalars - fem.Function,fem.Constant, ufl_function, callable function, number
-    \nVectors - fem.vector_Function,fem.vector_Constant, ufl_vector_function,
-    callable vector_function, tuple_number
+    \nVectors - fem.vector_Function,fem.vector_Constant, ufl_vector_function, callable vector_function, tuple_number
 
     Returns:
         fem.Function: Function
@@ -286,8 +184,7 @@ def Function(space, form=None):
             function (fem.Function): _description_
             form (any form):
         \nScalars - fem.Function,fem.Constant, ufl_function, callable function, number
-        \nVectors - fem.vector_Function,fem.vector_Constant, ufl_vector_function,
-        callable vector_function, tuple_number
+        \nVectors - fem.vector_Function,fem.vector_Constant, ufl_vector_function, callable vector_function, tuple_number
 
         Returns:
             fem.Function: Interpolated fem.Function
@@ -341,7 +238,7 @@ def Function(space, form=None):
 
     function = fem.Function(space)
 
-    if form is None:
+    if form == None:
         return function
     else:
         interpolate(function=function, form=form)
@@ -369,18 +266,14 @@ class LinearProblem:
         Args:
             a (ufl.Form): bilinear form
             L (ufl.Form): linear form
-            bcs (Dirichlet): Dirichlet conditious.
-            \nu (fem.Function): Function to be solved. Defaults to None.
-            \npetsc_options (dict): Options to petsc.
-            Defaults to { 'ksp_type': 'preonly', 'pc_type': 'lu' }.
-            \nassemble_options (dict): Options to assemble bilinear and linear forms.
+            bcs (Dirichlet): Dirichlet conditious. Defaults to [].
+            u (fem.Function): Function to be solved. Defaults to None.
+            petsc_options (dict): Options to petsc. Defaults to { 'ksp_type': 'preonly', 'pc_type': 'lu' }.
+            assemble_options (dict): Options to assemble bilinear and linear forms.
             Defaults to {'assebmle_A': True, 'assemble_B': True}.
-            \nghost_opions (dict): GhostUpdate potions.
-            Defaults to  {'addv': ADD,'mode': REVERSE}.
-            \nform_compiler_params (dict): Form compiler options.
-            Defaults to {}.
-            \njit_params (dict): JIT parmetrs.
-            Defaults to {}.
+            ghost_opions (dict): GhostUpdate potions. Defaults to  {'addv': ADD,'mode': REVERSE}.
+            form_compiler_params (dict): Form compiler options. Defaults to {}.
+            jit_params (dict): JIT parmetrs. Defaults to {}.
         """
 
     def __init__(
@@ -552,8 +445,7 @@ class NonlinearProblem:
             \njit_params (dict): JIT parmetrs.
             Defaults to {}.
         """
-
-
+    import typing
 
     def __init__(
         self,
@@ -643,140 +535,110 @@ class NonlinearProblem:
         return self._a
 
 
-# Task
-N = 50
+# Post process
+class PostProcess:
 
-domain = mesh.create_unit_square(
-    nx=N, ny=N, comm=MPI.COMM_WORLD, cell_type=mesh.CellType.triangle
-    )
-el = ufl.FiniteElement(family='CG', cell=domain.ufl_cell(), degree=1)
-Mix_el = el * el
-W = FunctionSpace(mesh=domain, element=Mix_el)
+    @staticmethod
+    def data_construct(dofs, x_array):
+        data = np.column_stack((dofs[:, 0:2], x_array))
+        x_data = data[:, 0]
+        y_data = data[:, 1]
+        z_data = data[:, 2]
+        return [x_data, y_data, z_data]
 
-x, y = SpatialCoordinate(W)
-dx = ufl.Measure('cell', subdomain_id='everywhere')
-u, v = TestFunctions(W)
-s, s0 = Function(W), Function(W)
+    @staticmethod
+    def line_collision(domain, line_cord):
+        """Generate points and cells of colliding domain and line
 
-cN, cP = split(s)
-cN0, cP0 = split(s0)
+        Args:
+            domain (mesh): Domain
+            line_cord (array): 3D line contervertor of coordinates
 
-save_dir = '/home/VTK/FUCK_files'
-Nt = 1000
+        Returns:
+            Tuple: Collision points and collision cells
+        """
+        bb_tree = dolfinx.geometry.BoundingBoxTree(domain, domain.topology.dim)
+        cells_on_line = []
+        points_on_line = []
+        cell_candidates = dolfinx.geometry.compute_collisions(
+            bb_tree, line_cord.T
+            )
+        colliding_cells = dolfinx.geometry.compute_colliding_cells(
+            domain, cell_candidates, line_cord.T
+            )
+        for i, point in enumerate(line_cord.T):
+            if len(colliding_cells.links(i)) > 0:
+                points_on_line.append(point)
+                cells_on_line.append(colliding_cells.links(i)[0])
 
-# dt = 0.05
-# T = Nt * dt
+        points_on_line = np.array(points_on_line, dtype=np.float64)
 
-T = 20
-dt = T / Nt
+        return (points_on_line, cells_on_line)
 
-N_checks = 100
-check_every = Nt / N_checks
+    @staticmethod
+    def graph1D(fig, ax, lists, points_on=False):
+        """Create graph from fem.Function
 
-s.sub(0).interpolate(lambda x: 0.2 + x[0] - x[0])
-s.sub(1).interpolate(lambda x: 0.001 + x[0] - x[0])
-s.x.scatter_forward()
+        Args:
+            fig (plt.Figure): Figure
+            lists (fem.Function, str): List of (u, title)
+            points_on (bool): If true create scatter
+        """
+        for list in lists:
+            u, title = list
+            x_cord = u.function_space.mesh.geometry.x[:, 0]
+            y_cord = u.x.array
+            ax.set_title(title)
+            if points_on: ax.scatter(x_cord, y_cord)
+            ax.plot(x_cord, y_cord, label=title)
 
-a = 0.2
-e = 0.01
-b = 0.01
-g = 4
-p1 = 0.13
+        ax.legend(loc='upper left', facecolor='yellow')
+        return
 
+    @staticmethod
+    def graph2D(fig, lists, natural_show=False, points_on=False):
+        """Create graph from fem.Function
 
-# lambda x:
-def light_f(x):
-    # np.where(
-    #     npand(
-    #         npand(x[0] <0.5, 0.3, x[0] < 0.6),
-    #         npand(x[1] > 0.4, x[1] < 0.5)
-    #     ),
-    #     1,
-    #     0,
-    #     )
-    result = np.where(
-        npand(x[0] < 0.5, x[1] < 0.5),
-        1,
-        0,
-        )
-    return result
+        Args:
+            fig (plt.Figure): Figure
+            lists (fem.Function , plt.Axes, str): List of (u, curent axes, title)
+            natural_show (bool): True = tripcolor, False = tricontourf
+            points_on (bool): True = set points
+        """
 
+        for list in lists:
+            u, ax, title = list
+            dofs = u.function_space.tabulate_dof_coordinates()
+            ax.set_title(title)
+            data = PostProcess.data_construct(dofs, u.x.array)
 
-light = Function(W.sub(1).collapse()[0], light_f)
+            if points_on:
+                ax.plot(data[0], data[1], 'o', markersize=2, color='grey')
 
-f = g * (1-cP-cN) * (-ufl.ln((1-cP-cN) / (1-cN)))**((g-1) / g)
+            if natural_show:
+                plot = ax.tripcolor(*data)
+            else:
+                try:
+                    levels = np.linspace(u.x.array.min(), u.x.array.max(), 10)
+                    plot = ax.tricontourf(*data, levels=levels)
+                except:
+                    print(f'{title} - error')
 
-F1 = (1/dt) * (cN-cN0) * u * dx
-F1 += a * (grad(cN)|dot|grad(u)) * dx
-F1 += -a * cP * (grad(cN)|dot|grad(u)) * dx
-F1 += a * cN * (grad(cP)|dot|grad(u)) * dx
-F1 += e * cP * (grad(cN)|dot|grad(u)) * dx
-F1 += -e * cN * (grad(cP)|dot|grad(u)) * dx
-F1 += (e/p1) * cP * (grad(cP)|dot|grad(cN)) * u * dx
-F1 += -(e / p1) * cN * (grad(cP)|dot|grad(cP)) * u * dx
+            ax.set_aspect(1)
+            fig.colorbar(plot, ax=ax)
+        return
 
-F2 = (1/dt) * (cP-cP0) * v * dx
-F2 += b * (grad(cP)|dot|grad(v)) * dx
-F2 += b * cP * (grad(cN)|dot|grad(v)) * dx
-F2 += -b * cN * (grad(cP)|dot|grad(v)) * dx
-F2 += -e * cP * (grad(cN)|dot|grad(v)) * dx
-F2 += e * cN * (grad(cP)|dot|grad(v)) * dx
-F2 += (b/p1) * cP * (grad(cP)|dot|grad(cN)) * v * dx
-F2 += -(b / p1) * cN * (grad(cP)|dot|grad(cP)) * v * dx
-F2 += -(e / p1) * cP * (grad(cN)|dot|grad(cP)) * v * dx
-F2 += (e/p1) * cN * (grad(cP)|dot|grad(cP)) * v * dx
-F2 += (b/p1) * (grad(cP)|dot|grad(cP)) * v * dx
-F2 += -light * f * v * dx
+    @staticmethod
+    def L1_error(space, u0, u1):
+        """L1 error
 
-F = F1 + F2
+        Args:
+            space (fem.Space): Space
+            u0 (fem.Function): Default function
+            u1 (fem.Function): Compare function
 
-problem = NonlinearProblem(
-    F=F,
-    bcs=[],
-    u=s,
-    petsc_options={
-        'ksp_type': 'cg',
-        'pc_type': 'lu',
-        'pc_factor_mat_solver_type': 'superlu_dist',
-        }
-    )
-
-cNS = s.sub(0)
-cPS = s.sub(1)
-cNS.name = 'C neutral'
-cPS.name = 'C polimer'
-light.name = 'Light'
-try:
-    shutil.rmtree(save_dir)
-except:
-    print('Directory empty yet')
-with io.XDMFFile(domain.comm, save_dir + '/Fuck.xdmf', 'w') as file:
-    file.write_mesh(domain)
-    file.write_function(cNS, 0)
-    file.write_function(cPS, 0)
-    file.write_function(light, 0)
-    s0.interpolate(s)
-    for time in tqdm(desc='Solving PDE', iterable=np.arange(0, T, dt)):
-        s = problem.solve()
-        s0.interpolate(s)
-        if (time/dt) % check_every == 0:
-            file.write_function(cNS, time + dt)
-            file.write_function(cPS, time + dt)
-            file.write_function(light, time + dt)
-
-W0 = W.sub(0).collapse()[0]
-light_col = Function(W0, light)
-cNS_col = Function(W0, cNS)
-cPS_col = Function(W0, cPS)
-cMS_col = Function(W0, 1 - cNS_col - cPS_col)
-
-print(f'(FDM1) CFL: {a*N**2*dt}')
-print(f"Norm of polimer: {cPS_col.x.norm():.2f}")
-print(f"Norm of neutral: {cNS_col.x.norm():.2f}")
-fig, (ax, ax2) = plt.subplots(1, 2)
-fig.set_size_inches(16, 8)
-graph2D(
-    fig=fig,
-    lists=[[cPS_col, ax, 'Polimer'], [cMS_col, ax2, 'Monomer']],
-    natural_show=True,     # points_on=True,
-    )
+        Returns:
+            fem.Function: L1 error
+        """
+        L1 = Function(space, abs(u1 - u0))
+        return L1
