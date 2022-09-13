@@ -1,11 +1,13 @@
+# Saving and type checking
+import shutil
+import typing
 # Solving
 import dolfinx
 from dolfinx import mesh, fem, io, nls
 from dolfinx.fem import FunctionSpace, VectorFunctionSpace
 from mpi4py import MPI
 import numpy as np
-# Saving and type checking
-import shutil
+
 # Operators
 import ufl
 from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions
@@ -20,15 +22,15 @@ import matplotlib.pyplot as plt
 # Logging
 from tqdm import tqdm
 
-
 # Operators
-class Infix:
+class _Infix_:
+    """Create infix function from default"""
 
     def __init__(self, function):
         self.function = function
 
     def __ror__(self, other):
-        return Infix(lambda x, self=self, other=other: self.function(other, x))
+        return _Infix_(lambda x, self=self, other=other: self.function(other, x))
 
     def __or__(self, other):
         return self.function(other)
@@ -37,11 +39,11 @@ class Infix:
         return self.function(value1, value2)
 
 
-dot = Infix(ufl.dot)
-inner = Infix(ufl.inner)
+dot = _Infix_(ufl.dot)
+inner = _Infix_(ufl.inner)
 
-npor = Infix(np.logical_or)
-npand = Infix(np.logical_and)
+npor = _Infix_(np.logical_or)
+npand = _Infix_(np.logical_and)
 
 
 def vector(*args):
@@ -62,6 +64,14 @@ def I(func_like):
 
 # Functions:
 def get_space_dim(space):
+    """Get dimensions of X on space
+
+    Args:
+        space (fem.FunctionSpace): Space
+
+    Returns:
+        List: space dim, len
+    """
     return (space.mesh.geometry.dim, len(space.dofmap.list.array))
 
 
@@ -116,10 +126,10 @@ def DirichletBC(space, form, combined_marker):
     Args:
         space (fem.FunctionSpace): Function space
         func (fem.function): Function only
-        combined_marker (Any): One from next
+        combined_marker (Any): One from next::
         \nFunction - boundary marker function find geometrical
         \nAll - all boundary find entities
-        \n(mesh.meshtags, marker) - list or tuple, marker of boundary from Marked_facets - mesh.meshtags find entities
+        \n(mesh.meshtags, marker) -Find entities marker of boundary from mesh tags
 
     Returns:
         condition (dirichletbc): Dirichlet condition
@@ -135,7 +145,7 @@ def DirichletBC(space, form, combined_marker):
             bc = fem.dirichletbc(V=space, dofs=dofs, value=form)
         return bc
 
-    if type(space) == (tuple or list): space0 = space[0]
+    if isinstance(space, tuple or list): space0 = space[0]
     else: space0 = space
     domain = space0.mesh
 
@@ -147,7 +157,7 @@ def DirichletBC(space, form, combined_marker):
             facets,
             )
 
-    elif type(combined_marker) == (tuple or list):
+    elif isinstance(combined_marker, tuple or list):
         marked_facets, marker = combined_marker
         facets = marked_facets.find(marker)
         dofs = fem.locate_dofs_topological(
@@ -171,7 +181,8 @@ def Function(space, form=None):
         space (FunctionSpace): New space
         form (): Any form:
     \nScalars - fem.Function,fem.Constant, ufl_function, callable function, number
-    \nVectors - fem.vector_Function,fem.vector_Constant, ufl_vector_function, callable vector_function, tuple_number
+    \nVectors - fem.vector_Function, fem.vector_Constant, ufl_vector_function,
+    callable vector_function, tuple_number
 
     Returns:
         fem.Function: Function
@@ -184,7 +195,8 @@ def Function(space, form=None):
             function (fem.Function): _description_
             form (any form):
         \nScalars - fem.Function,fem.Constant, ufl_function, callable function, number
-        \nVectors - fem.vector_Function,fem.vector_Constant, ufl_vector_function, callable vector_function, tuple_number
+        \nVectors - fem.vector_Function, fem.vector_Constant, ufl_vector_function,
+        callable vector_function, tuple_number
 
         Returns:
             fem.Function: Interpolated fem.Function
@@ -238,7 +250,7 @@ def Function(space, form=None):
 
     function = fem.Function(space)
 
-    if form == None:
+    if form is None:
         return function
     else:
         interpolate(function=function, form=form)
@@ -266,14 +278,18 @@ class LinearProblem:
         Args:
             a (ufl.Form): bilinear form
             L (ufl.Form): linear form
-            bcs (Dirichlet): Dirichlet conditious. Defaults to [].
-            u (fem.Function): Function to be solved. Defaults to None.
-            petsc_options (dict): Options to petsc. Defaults to { 'ksp_type': 'preonly', 'pc_type': 'lu' }.
-            assemble_options (dict): Options to assemble bilinear and linear forms.
+            bcs (Dirichlet): Dirichlet conditious.
+            \nu (fem.Function): Function to be solved. Defaults to None.
+            \npetsc_options (dict): Options to petsc.
+            Defaults to { 'ksp_type': 'preonly', 'pc_type': 'lu' }.
+            \nassemble_options (dict): Options to assemble bilinear and linear forms.
             Defaults to {'assebmle_A': True, 'assemble_B': True}.
-            ghost_opions (dict): GhostUpdate potions. Defaults to  {'addv': ADD,'mode': REVERSE}.
-            form_compiler_params (dict): Form compiler options. Defaults to {}.
-            jit_params (dict): JIT parmetrs. Defaults to {}.
+            \nghost_opions (dict): GhostUpdate potions.
+            Defaults to  {'addv': ADD,'mode': REVERSE}.
+            \nform_compiler_params (dict): Form compiler options.
+            Defaults to {}.
+            \njit_params (dict): JIT parmetrs.
+            Defaults to {}.
         """
 
     def __init__(
@@ -445,7 +461,6 @@ class NonlinearProblem:
             \njit_params (dict): JIT parmetrs.
             Defaults to {}.
         """
-    import typing
 
     def __init__(
         self,
@@ -537,9 +552,19 @@ class NonlinearProblem:
 
 # Post process
 class PostProcess:
+    """Class for different methods to plot functions"""
 
     @staticmethod
     def data_construct(dofs, x_array):
+        """Constuct X data
+
+        Args:
+            dofs (fem.dofs): Dofs
+            x_array (fem.array): X array
+
+        Returns:
+            np.array: Data
+        """
         data = np.column_stack((dofs[:, 0:2], x_array))
         x_data = data[:, 0]
         y_data = data[:, 1]
@@ -584,8 +609,8 @@ class PostProcess:
             lists (fem.Function, str): List of (u, title)
             points_on (bool): If true create scatter
         """
-        for list in lists:
-            u, title = list
+        for lis in lists:
+            u, title = lis
             x_cord = u.function_space.mesh.geometry.x[:, 0]
             y_cord = u.x.array
             ax.set_title(title)
@@ -606,8 +631,8 @@ class PostProcess:
             points_on (bool): True = set points
         """
 
-        for list in lists:
-            u, ax, title = list
+        for lis in lists:
+            u, ax, title = lis
             dofs = u.function_space.tabulate_dof_coordinates()
             ax.set_title(title)
             data = PostProcess.data_construct(dofs, u.x.array)

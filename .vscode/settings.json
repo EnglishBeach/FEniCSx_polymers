@@ -20,5 +20,9 @@
         "reportSelfClsParameterName": "information",
         "reportImplicitStringConcatenation": "information",
         "reportInvalidStringEscapeSequence": "information",
-        }
+        },
+        "python.analysis.extraPaths": [
+            "./BASEFunctions",
+            "./BASEFunctions"
+        ]
 }
