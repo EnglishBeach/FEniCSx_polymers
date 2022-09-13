@@ -642,6 +642,7 @@ class NonlinearProblem:
         """The compiled bilinear form"""
         return self._a
 
+
 # Task
 N = 50
 
