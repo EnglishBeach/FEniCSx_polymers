@@ -1,36 +1,20 @@
-# Saving and type checking
-import shutil
-import typing
-# Solving
-import dolfinx
-from dolfinx import mesh, fem, io, nls
-from dolfinx.fem import FunctionSpace, VectorFunctionSpace
-from mpi4py import MPI
-import numpy as np
+import dolfinx as _dolfinx
+from dolfinx import mesh as _mesh
+from dolfinx import fem as _fem
+from dolfinx import nls as _nls
+
+import numpy as _np
+import ufl as _ufl
 
 # Operators
-import ufl
-from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions
-from ufl import FacetNormal, SpatialCoordinate, variable
-from ufl import diff as D
-from ufl import nabla_div, nabla_grad, grad, div
-from ufl import as_matrix as matrix
-from ufl import lhs, rhs, split
-from ufl import exp, sym, tr, sqrt, ln, sin, cos
-# Graphics
-import matplotlib.pyplot as plt
-# Logging
-from tqdm import tqdm
-
-# Operators
-class _Infix_:
+class _Infix:
     """Create infix function from default"""
 
     def __init__(self, function):
         self.function = function
 
     def __ror__(self, other):
-        return _Infix_(lambda x, self=self, other=other: self.function(other, x))
+        return _Infix(lambda x, self=self, other=other: self.function(other, x))
 
     def __or__(self, other):
         return self.function(other)
@@ -39,15 +23,15 @@ class _Infix_:
         return self.function(value1, value2)
 
 
-dot = _Infix_(ufl.dot)
-inner = _Infix_(ufl.inner)
+dot = _Infix(_ufl.dot)
+inner = _Infix(_ufl.inner)
 
-npor = _Infix_(np.logical_or)
-npand = _Infix_(np.logical_and)
+npor = _Infix(_np.logical_or)
+npand = _Infix(_np.logical_and)
 
 
 def vector(*args):
-    return ufl.as_vector(tuple(args))
+    return _ufl.as_vector(tuple(args))
 
 
 def I(func_like):
@@ -59,7 +43,7 @@ def I(func_like):
     Returns:
         Tensor: Identity
     """
-    return ufl.Identity(func_like.geometric_dimension())
+    return _ufl.Identity(func_like.geometric_dimension())
 
 
 # Functions:
@@ -87,17 +71,17 @@ def create_FacetTags_boundary(domain, bound_markers):
     """
     facet_indices, facet_markers = [], []
     for (marker, condition) in bound_markers:
-        facets = mesh.locate_entities_boundary(
+        facets = _mesh.locate_entities_boundary(
             domain,
             domain.topology.dim - 1,
             condition,
             )
         facet_indices.append(facets)
-        facet_markers.append(np.full_like(facets, marker))
-    facet_indices = np.hstack(facet_indices).astype(np.int32)
-    facet_markers = np.hstack(facet_markers).astype(np.int32)
-    sorted_facets = np.argsort(facet_indices)
-    facet_tags = mesh.meshtags(
+        facet_markers.append(_np.full_like(facets, marker))
+    facet_indices = _np.hstack(facet_indices).astype(_np.int32)
+    facet_markers = _np.hstack(facet_markers).astype(_np.int32)
+    sorted_facets = _np.argsort(facet_indices)
+    facet_tags = _mesh.meshtags(
         domain,
         domain.topology.dim - 1,
         facet_indices[sorted_facets],
@@ -138,11 +122,11 @@ def DirichletBC(space, form, combined_marker):
     def all_dirichlet(dofs, form, space):
         if hasattr(form, 'function_space'):
             if form.function_space == space:
-                bc = fem.dirichletbc(dofs=dofs, value=form)
+                bc = _fem.dirichletbc(dofs=dofs, value=form)
             else:
-                bc = fem.dirichletbc(V=space, dofs=dofs, value=form)
+                bc = _fem.dirichletbc(V=space, dofs=dofs, value=form)
         else:
-            bc = fem.dirichletbc(V=space, dofs=dofs, value=form)
+            bc = _fem.dirichletbc(V=space, dofs=dofs, value=form)
         return bc
 
     if isinstance(space, tuple or list): space0 = space[0]
@@ -150,8 +134,8 @@ def DirichletBC(space, form, combined_marker):
     domain = space0.mesh
 
     if combined_marker == 'All':
-        facets = mesh.exterior_facet_indices(domain.topology)
-        dofs = fem.locate_dofs_topological(
+        facets = _mesh.exterior_facet_indices(domain.topology)
+        dofs = _fem.locate_dofs_topological(
             space,
             domain.topology.dim - 1,
             facets,
@@ -160,14 +144,14 @@ def DirichletBC(space, form, combined_marker):
     elif isinstance(combined_marker, tuple or list):
         marked_facets, marker = combined_marker
         facets = marked_facets.find(marker)
-        dofs = fem.locate_dofs_topological(
+        dofs = _fem.locate_dofs_topological(
             space,
             domain.topology.dim - 1,
             facets,
             )
 
     else:
-        dofs = fem.locate_dofs_geometrical(space, combined_marker)
+        dofs = _fem.locate_dofs_geometrical(space, combined_marker)
 
     bc = all_dirichlet(dofs, form, space0)
 
@@ -204,7 +188,7 @@ def Function(space, form=None):
         space = function.function_space
 
         tupe = str(form.__class__)[8:-2]
-        cord = SpatialCoordinate(space)
+        cord = _ufl.SpatialCoordinate(space)
 
         # fem.Function
         if tupe == ('dolfinx.fem.function.Function'):
@@ -217,7 +201,7 @@ def Function(space, form=None):
             else:
                 form2 = vector(*form.value) +\
                     vector(*map(lambda x, y: x - y, cord, cord))
-            expression = fem.Expression(
+            expression = _fem.Expression(
                 form2, space.element.interpolation_points()
                 )
 
@@ -227,7 +211,7 @@ def Function(space, form=None):
                 form2 = form + vector(*map(lambda x, y: x - y, cord, cord))
             else:
                 form2 = form + (cord[0] - cord[0])
-            expression = fem.Expression(
+            expression = _fem.Expression(
                 form2, space.element.interpolation_points()
                 )
 
@@ -242,13 +226,13 @@ def Function(space, form=None):
                                ) + vector(*map(lambda x, y: x - y, cord, cord))
             else:
                 form2 = form + (cord[0] - cord[0])
-            expression = fem.Expression(
+            expression = _fem.Expression(
                 form2, space.element.interpolation_points()
                 )
         function.interpolate(expression)
         return function
 
-    function = fem.Function(space)
+    function = _fem.Function(space)
 
     if form is None:
         return function
@@ -268,7 +252,7 @@ def Constant(domain_space, const):
     Returns:
         fem.function.Constant: Constant on space
     """
-    return fem.Constant(domain_space, fem.petsc.PETSc.ScalarType(const))
+    return _fem.Constant(domain_space, _fem.petsc.PETSc.ScalarType(const))
 
 
 # Solvers
@@ -294,10 +278,10 @@ class LinearProblem:
 
     def __init__(
         self,
-        a: ufl.Form,
-        L: ufl.Form,
+        a: _ufl.Form,
+        L: _ufl.Form,
         bcs: list,
-        u: fem.Function = None,
+        u: _fem.Function = None,
         petsc_options={
             'ksp_type': 'preonly', 'pc_type': 'lu'
             },
@@ -313,7 +297,7 @@ class LinearProblem:
             ksp = self._solver
             problem_prefix = f'dolfinx_solve_{id(self)}'
             ksp.setOptionsPrefix(problem_prefix)
-            opts = fem.petsc.PETSc.Options()
+            opts = _fem.petsc.PETSc.Options()
             opts.prefixPush(problem_prefix)
             for k, v in petsc_options.items():
                 opts[k] = v
@@ -330,30 +314,30 @@ class LinearProblem:
             # Extract function space from TrialFunction (which is at the
             # end of the argument list as it is numbered as 1, while the
             # Test function is numbered as 0)
-            self._u = fem.Function(a.arguments()[-1].ufl_function_space())
+            self._u = _fem.Function(a.arguments()[-1].ufl_function_space())
         else:
             self._u = u
 
         self.bcs = bcs
 
         # A form
-        self._a = fem.form(
+        self._a = _fem.form(
             a,
             form_compiler_params=form_compiler_params,
             jit_params=jit_params,
             )
-        self._A = fem.petsc.create_matrix(self._a)
+        self._A = _fem.petsc.create_matrix(self._a)
 
         # b form
-        self._L = fem.form(
+        self._L = _fem.form(
             L,
             form_compiler_params=form_compiler_params,
             jit_params=jit_params,
             )
-        self._b = fem.petsc.create_vector(self._L)
+        self._b = _fem.petsc.create_vector(self._L)
 
         # Creating solver
-        self._solver = fem.petsc.PETSc.KSP().create(
+        self._solver = _fem.petsc.PETSc.KSP().create(
             self._u.function_space.mesh.comm
             )
         self._solver.setOperators(self._A)
@@ -361,8 +345,8 @@ class LinearProblem:
 
         # Another options
         self._ghost_opions = {
-            'addv': fem.petsc.PETSc.InsertMode.ADD,
-            'mode': fem.petsc.PETSc.ScatterMode.REVERSE,
+            'addv': _fem.petsc.PETSc.InsertMode.ADD,
+            'mode': _fem.petsc.PETSc.ScatterMode.REVERSE,
             }
         self._ghost_opions.update(ghost_opions)
 
@@ -373,20 +357,20 @@ class LinearProblem:
     def assemble_A(self):
         """Assemle bilinear form"""
         self._A.zeroEntries()
-        fem.petsc._assemble_matrix_mat(self._A, self._a, bcs=self.bcs)
+        _fem.petsc._assemble_matrix_mat(self._A, self._a, bcs=self.bcs)
         self._A.assemble()
 
     def assemble_b(self):
         """Assemble linear form"""
         with self._b.localForm() as b_loc:
             b_loc.set(0)
-        fem.petsc.assemble_vector(self._b, self._L)
-        fem.petsc.apply_lifting(self._b, [self._a], bcs=[self.bcs])
+        _fem.petsc.assemble_vector(self._b, self._L)
+        _fem.petsc.apply_lifting(self._b, [self._a], bcs=[self.bcs])
         self._b.ghostUpdate(
             addv=self._ghost_opions['addv'],
             mode=self._ghost_opions['mode'],
             )
-        fem.petsc.set_bc(self._b, self.bcs)
+        _fem.petsc.set_bc(self._b, self.bcs)
 
     def solve(self):
         """Solve function
@@ -401,40 +385,40 @@ class LinearProblem:
     @staticmethod
     def KSP_types():
         """Get KSP types"""
-        return fem.petsc.PETSc.KSP.Type
+        return _fem.petsc.PETSc.KSP.Type
 
     @staticmethod
     def PC_types():
         """Get PC types"""
-        return fem.petsc.PETSc.PC.Type
+        return _fem.petsc.PETSc.PC.Type
 
     @staticmethod
     def ghost_updates():
         """Get ghost_update types"""
-        return (fem.petsc.PETSc.InsertMode, fem.petsc.PETSc.ScatterMode)
+        return (_fem.petsc.PETSc.InsertMode, _fem.petsc.PETSc.ScatterMode)
 
     @property
-    def L(self) -> fem.FormMetaClass:
+    def L(self) -> _fem.FormMetaClass:
         """The compiled linear form"""
         return self._L
 
     @property
-    def a(self) -> fem.FormMetaClass:
+    def a(self) -> _fem.FormMetaClass:
         """The compiled bilinear form"""
         return self._a
 
     @property
-    def A(self) -> fem.petsc.PETSc.Mat:
+    def A(self) -> _fem.petsc.PETSc.Mat:
         """Matrix operator"""
         return self._A
 
     @property
-    def b(self) -> fem.petsc.PETSc.Vec:
+    def b(self) -> _fem.petsc.PETSc.Vec:
         """Right-hand side vector"""
         return self._b
 
     @property
-    def solver(self) -> fem.petsc.PETSc.KSP:
+    def solver(self) -> _fem.petsc.PETSc.KSP:
         """Linear solver object"""
         return self._solver
 
@@ -464,10 +448,10 @@ class NonlinearProblem:
 
     def __init__(
         self,
-        F: ufl.Form,
+        F: _ufl.Form,
         bcs: list,
-        u: fem.Function,
-        J: ufl.Form = None,
+        u: _fem.Function,
+        J: _ufl.Form = None,
         solve_options={
             'convergence': 'incremental', 'tolerance': 1E-6
             },
@@ -486,7 +470,7 @@ class NonlinearProblem:
 
             ksp = self._solver.krylov_solver
             problem_prefix = ksp.getOptionsPrefix()
-            opts = fem.petsc.PETSc.Options()
+            opts = _fem.petsc.PETSc.Options()
             opts.prefixPush(problem_prefix)
             for k, v in petsc_options.items():
                 opts[k] = v
@@ -495,7 +479,7 @@ class NonlinearProblem:
         self._u = u
         self.bcs = bcs
 
-        pr = fem.petsc.NonlinearProblem(
+        pr = _fem.petsc.NonlinearProblem(
             F=F,
             u=self._u,
             bcs=self.bcs,
@@ -507,7 +491,7 @@ class NonlinearProblem:
         self._L = pr.L
 
         # Creating solver
-        self._solver = nls.petsc.NewtonSolver(
+        self._solver = _nls.petsc.NewtonSolver(
             self._u.function_space.mesh.comm,
             pr,
             )
@@ -527,25 +511,25 @@ class NonlinearProblem:
     @staticmethod
     def KSP_types():
         """Get KSP types"""
-        return fem.petsc.PETSc.KSP.Type
+        return _fem.petsc.PETSc.KSP.Type
 
     @staticmethod
     def PC_types():
         """Get PC types"""
-        return fem.petsc.PETSc.PC.Type
+        return _fem.petsc.PETSc.PC.Type
 
     @property
-    def solver(self) -> fem.petsc.PETSc.KSP:
+    def solver(self) -> _fem.petsc.PETSc.KSP:
         """Linear solver object"""
         return self._solver
 
     @property
-    def L(self) -> fem.FormMetaClass:
+    def L(self) -> _fem.FormMetaClass:
         """The compiled linear form"""
         return self._L
 
     @property
-    def a(self) -> fem.FormMetaClass:
+    def a(self) -> _fem.FormMetaClass:
         """The compiled bilinear form"""
         return self._a
 
@@ -565,7 +549,7 @@ class PostProcess:
         Returns:
             np.array: Data
         """
-        data = np.column_stack((dofs[:, 0:2], x_array))
+        data = _np.column_stack((dofs[:, 0:2], x_array))
         x_data = data[:, 0]
         y_data = data[:, 1]
         z_data = data[:, 2]
@@ -582,13 +566,13 @@ class PostProcess:
         Returns:
             Tuple: Collision points and collision cells
         """
-        bb_tree = dolfinx.geometry.BoundingBoxTree(domain, domain.topology.dim)
+        bb_tree = _dolfinx.geometry.BoundingBoxTree(domain, domain.topology.dim)
         cells_on_line = []
         points_on_line = []
-        cell_candidates = dolfinx.geometry.compute_collisions(
+        cell_candidates = _dolfinx.geometry.compute_collisions(
             bb_tree, line_cord.T
             )
-        colliding_cells = dolfinx.geometry.compute_colliding_cells(
+        colliding_cells = _dolfinx.geometry.compute_colliding_cells(
             domain, cell_candidates, line_cord.T
             )
         for i, point in enumerate(line_cord.T):
@@ -596,7 +580,7 @@ class PostProcess:
                 points_on_line.append(point)
                 cells_on_line.append(colliding_cells.links(i)[0])
 
-        points_on_line = np.array(points_on_line, dtype=np.float64)
+        points_on_line = _np.array(points_on_line, dtype=_np.float64)
 
         return (points_on_line, cells_on_line)
 
@@ -644,7 +628,7 @@ class PostProcess:
                 plot = ax.tripcolor(*data)
             else:
                 try:
-                    levels = np.linspace(u.x.array.min(), u.x.array.max(), 10)
+                    levels = _np.linspace(u.x.array.min(), u.x.array.max(), 10)
                     plot = ax.tricontourf(*data, levels=levels)
                 except:
                     print(f'{title} - error')
