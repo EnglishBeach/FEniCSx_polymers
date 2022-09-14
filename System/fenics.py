@@ -180,9 +180,9 @@ def Function(space, form=None):
     Args:
         space (FunctionSpace): New space
         form (): Any form:
-    \nScalars - fem.Function,fem.Constant, ufl_function, callable function, number
-    \nVectors - fem.vector_Function, fem.vector_Constant, ufl_vector_function,
-    callable vector_function, tuple_number
+        \nScalars - fem.Function,fem.Constant, ufl_function, callable function, number
+        \nVectors - fem.vector_Function, fem.vector_Constant, ufl_vector_function,
+        callable vector_function, tuple_number
 
     Returns:
         fem.Function: Function
@@ -194,9 +194,9 @@ def Function(space, form=None):
         Args:
             function (fem.Function): _description_
             form (any form):
-        \nScalars - fem.Function,fem.Constant, ufl_function, callable function, number
-        \nVectors - fem.vector_Function, fem.vector_Constant, ufl_vector_function,
-        callable vector_function, tuple_number
+            \nScalars - fem.Function,fem.Constant, ufl_function, callable function, number
+            \nVectors - fem.vector_Function, fem.vector_Constant, ufl_vector_function,
+            callable vector_function, tuple_number
 
         Returns:
             fem.Function: Interpolated fem.Function
