@@ -263,7 +263,7 @@ class LinearProblem:
             a (ufl.Form): bilinear form
             L (ufl.Form): linear form
             bcs (Dirichlet): Dirichlet conditious.
-            \nu (fem.Function): Function to be solved. Defaults to None.
+            u (fem.Function): Function to be solved.
             \npetsc_options (dict): Options to petsc.
             Defaults to { 'ksp_type': 'preonly', 'pc_type': 'lu' }.
             \nassemble_options (dict): Options to assemble bilinear and linear forms.
@@ -281,7 +281,7 @@ class LinearProblem:
         a: _ufl.Form,
         L: _ufl.Form,
         bcs: list,
-        u: _fem.Function = None,
+        u: _fem.Function,
         petsc_options={
             'ksp_type': 'preonly', 'pc_type': 'lu'
             },
@@ -309,15 +309,8 @@ class LinearProblem:
             # self._b.setFromOptions()
             pass
 
-        # Creating u function
-        if u is None:
-            # Extract function space from TrialFunction (which is at the
-            # end of the argument list as it is numbered as 1, while the
-            # Test function is numbered as 0)
-            self._u = _fem.Function(a.arguments()[-1].ufl_function_space())
-        else:
-            self._u = u
 
+        self._u = u
         self.bcs = bcs
 
         # A form
@@ -378,9 +371,9 @@ class LinearProblem:
         Returns:
             fem.Function: Solved function
         """
-        self._solver.solve(self._b, self._u.vector)
+        result = self._solver.solve(self._b, self._u.vector)
         self._u.x.scatter_forward()
-        return self._u
+        return result
 
     @staticmethod
     def KSP_types():
