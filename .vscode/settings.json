@@ -24,5 +24,6 @@
         "python.analysis.extraPaths": [
             "./BASEFunctions",
             "./BASEFunctions"
-        ]
+        ],
+        "python.analysis.typeCheckingMode": "off"
 }
