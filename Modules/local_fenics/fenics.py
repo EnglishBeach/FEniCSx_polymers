@@ -1,3 +1,4 @@
+# Base module
 import dolfinx as _dolfinx
 from dolfinx import mesh as _mesh
 from dolfinx import fem as _fem
@@ -5,6 +6,9 @@ from dolfinx import nls as _nls
 
 import numpy as _np
 import ufl as _ufl
+
+import shutil as _shutil
+
 
 # Operators
 class _Infix:
@@ -91,7 +95,7 @@ def create_FacetTags_boundary(domain, bound_markers):
     return facet_tags
 
 
-def create_connectivity(domain):
+def set_connectivity(domain):
     """Need to compute facets to Boundary value
 
     Args:
@@ -104,12 +108,14 @@ def create_connectivity(domain):
 
 
 # Classes
-def DirichletBC(space, form, combined_marker):
-    """Create Dirichlet condition. For several spaces:: first space is general.
+class DirichletBC:
+    """
+    Create Dirichlet condition.
 
     Args:
-        space (fem.FunctionSpace): Function space
-        func (fem.function): Function only
+        space (fem.FunctionSpace): Function space.
+        For several spaces:: first space is general.
+        form (any function): Function
         combined_marker (Any): One from next::
         \nFunction - boundary marker function find geometrical
         \nAll - all boundary find entities
@@ -119,46 +125,49 @@ def DirichletBC(space, form, combined_marker):
         condition (dirichletbc): Dirichlet condition
     """
 
-    def all_dirichlet(dofs, form, space):
-        if hasattr(form, 'function_space'):
-            if form.function_space == space:
-                bc = _fem.dirichletbc(dofs=dofs, value=form)
+    def __new__(cls, space, form, combined_marker):
+
+        def set_dirichlet(dofs, form, space):
+            if hasattr(form, 'function_space'):
+                if form.function_space == space:
+                    bc = _fem.dirichletbc(dofs=dofs, value=form)
+                else:
+                    bc = _fem.dirichletbc(V=space, dofs=dofs, value=form)
             else:
                 bc = _fem.dirichletbc(V=space, dofs=dofs, value=form)
+            return bc
+
+        # FIXME: Maybe listable?
+        if isinstance(space, tuple or list): space0 = space[0]
+        else: space0 = space
+        domain = space0.mesh
+
+        if combined_marker == 'All':
+            facets = _mesh.exterior_facet_indices(domain.topology)
+            dofs = _fem.locate_dofs_topological(
+                space,
+                domain.topology.dim - 1,
+                facets,
+                )
+
+        elif isinstance(combined_marker, tuple or list):
+            marked_facets, marker = combined_marker
+            facets = marked_facets.find(marker)
+            dofs = _fem.locate_dofs_topological(
+                space,
+                domain.topology.dim - 1,
+                facets,
+                )
+
         else:
-            bc = _fem.dirichletbc(V=space, dofs=dofs, value=form)
+            dofs = _fem.locate_dofs_geometrical(space, combined_marker)
+
+        bc = set_dirichlet(dofs, form, space0)
+
         return bc
 
-    if isinstance(space, tuple or list): space0 = space[0]
-    else: space0 = space
-    domain = space0.mesh
 
-    if combined_marker == 'All':
-        facets = _mesh.exterior_facet_indices(domain.topology)
-        dofs = _fem.locate_dofs_topological(
-            space,
-            domain.topology.dim - 1,
-            facets,
-            )
-
-    elif isinstance(combined_marker, tuple or list):
-        marked_facets, marker = combined_marker
-        facets = marked_facets.find(marker)
-        dofs = _fem.locate_dofs_topological(
-            space,
-            domain.topology.dim - 1,
-            facets,
-            )
-
-    else:
-        dofs = _fem.locate_dofs_geometrical(space, combined_marker)
-
-    bc = all_dirichlet(dofs, form, space0)
-
-    return bc
-
-
-def Function(space, form=None):
+class Function:
     """Function on new space. Default = 0
 
     Args:
@@ -172,87 +181,121 @@ def Function(space, form=None):
         fem.Function: Function
     """
 
-    def interpolate(function, form):
-        """Interpolate form to function
+    def __new__(cls, space, form=None):
+
+        def interpolate(function, form):
+            """Interpolate form to function
+
+            Args:
+                function (fem.Function): _description_
+                form (any form):
+                \nScalars - fem.Function,fem.Constant, ufl_function, callable function, number
+                \nVectors - fem.vector_Function, fem.vector_Constant, ufl_vector_function,
+                callable vector_function, tuple_number
+
+            Returns:
+                fem.Function: Interpolated fem.Function
+            """
+
+            def from_constant():
+                if len(form.ufl_shape) == 0:
+                    form2 = form.value + (cord[0] - cord[0])
+                else:
+                    form2 = vector(*form.value)
+                    form2 += vector(*map(lambda x, y: x - y, cord, cord))
+                expression = _fem.Expression(
+                    form2,
+                    space.element.interpolation_points(),
+                    )
+                return expression
+
+            def from_ufl():
+                if len(form.ufl_shape) != 0:
+                    form2 = form + vector(*map(lambda x, y: x - y, cord, cord))
+                else:
+                    form2 = form + (cord[0] - cord[0])
+                expression = _fem.Expression(
+                    form2,
+                    space.element.interpolation_points(),
+                    )
+                return expression
+
+            def from_number():
+                if hasattr(form, '__getitem__'):
+                    form2 = vector(*form)
+                    form2 += vector(*map(lambda x, y: x - y, cord, cord))
+                else:
+                    form2 = form + (cord[0] - cord[0])
+                expression = _fem.Expression(
+                    form2, space.element.interpolation_points()
+                    )
+                return expression
+
+            space = function.function_space
+
+            tupe = str(form.__class__)[8:-2]
+            cord = _ufl.SpatialCoordinate(space)
+
+            # fem.Function
+            if tupe == ('dolfinx.fem.function.Function'):
+                expression = form
+
+            # fem.Constant
+            elif tupe == ('dolfinx.fem.function.Constant'):
+                expression = from_constant()
+
+            elif tupe[:3] == 'ufl':
+                expression = from_ufl()
+
+            # Python function
+            elif hasattr(form, '__call__'):
+                expression = form
+
+            # Number
+            elif not hasattr(form, '__call__'):
+                expression = from_number()
+
+            function.interpolate(expression)
+            return function
+
+        function = _fem.Function(space)
+
+        if form is None:
+            return function
+        else:
+            interpolate(function=function, form=form)
+
+        return function
+
+
+class Constant:
+
+    def __new__(cls, domain_space, const):
+        """Constant on space
 
         Args:
-            function (fem.Function): _description_
-            form (any form):
-            \nScalars - fem.Function,fem.Constant, ufl_function, callable function, number
-            \nVectors - fem.vector_Function, fem.vector_Constant, ufl_vector_function,
-            callable vector_function, tuple_number
+            space (fem.FunctionSpace| domain): Space or domain
+            const (auny number): Any number
 
         Returns:
-            fem.Function: Interpolated fem.Function
+            fem.function.Constant: Constant on space
         """
-        space = function.function_space
-
-        tupe = str(form.__class__)[8:-2]
-        cord = _ufl.SpatialCoordinate(space)
-
-        # fem.Function
-        if tupe == ('dolfinx.fem.function.Function'):
-            expression = form
-
-        # fem.Constant
-        elif tupe == ('dolfinx.fem.function.Constant'):
-            if len(form.ufl_shape) == 0:
-                form2 = form.value + (cord[0] - cord[0])
-            else:
-                form2 = vector(*form.value) +\
-                    vector(*map(lambda x, y: x - y, cord, cord))
-            expression = _fem.Expression(
-                form2, space.element.interpolation_points()
-                )
-
-        # ufl object
-        elif tupe[:3] == 'ufl':
-            if len(form.ufl_shape) != 0:
-                form2 = form + vector(*map(lambda x, y: x - y, cord, cord))
-            else:
-                form2 = form + (cord[0] - cord[0])
-            expression = _fem.Expression(
-                form2, space.element.interpolation_points()
-                )
-
-        # Python function
-        elif hasattr(form, '__call__'):
-            expression = form
-
-        # Number
-        elif not hasattr(form, '__call__'):
-            if hasattr(form, '__getitem__'):
-                form2 = vector(*form
-                               ) + vector(*map(lambda x, y: x - y, cord, cord))
-            else:
-                form2 = form + (cord[0] - cord[0])
-            expression = _fem.Expression(
-                form2, space.element.interpolation_points()
-                )
-        function.interpolate(expression)
-        return function
-
-    function = _fem.Function(space)
-
-    if form is None:
-        return function
-    else:
-        interpolate(function=function, form=form)
-
-    return function
+        return _fem.Constant(domain_space, _fem.petsc.PETSc.ScalarType(const))
 
 
-def Constant(domain_space, const):
-    """Constant on space
+class Light_function:
 
-    Args:
-        space (fem.FunctionSpace| domain): Space or domain
-        const (auny number): Any number
+    def __init__(self, left, right) -> None:
+        if left >= right: raise ValueError('left value >= right value')
+        self._left = left
+        self._right = right
 
-    Returns:
-        fem.function.Constant: Constant on space
-    """
-    return _fem.Constant(domain_space, _fem.petsc.PETSc.ScalarType(const))
+    def sharp(self):
+        return lambda x: _np.where(
+            npand(x[0] >= self._left, x[0] <= self._right),
+            1,
+            0,
+            )
 
 
 # Solvers
@@ -309,7 +352,6 @@ class LinearProblem:
             # self._b.setFromOptions()
             pass
 
-
         self._u = u
         self.bcs = bcs
 
@@ -344,16 +386,17 @@ class LinearProblem:
         self._ghost_opions.update(ghost_opions)
 
         # Assembling
-        if assemble_options['assemble_A']: self.assemble_A()
-        if assemble_options['assemble_b']: self.assemble_b()
+        self.assemble_options = assemble_options
+        if self.assemble_options['assemble_A']: self._assemble_A()
+        if self.assemble_options['assemble_b']: self._assemble_b()
 
-    def assemble_A(self):
+    def _assemble_A(self):
         """Assemle bilinear form"""
         self._A.zeroEntries()
         _fem.petsc._assemble_matrix_mat(self._A, self._a, bcs=self.bcs)
         self._A.assemble()
 
-    def assemble_b(self):
+    def _assemble_b(self):
         """Assemble linear form"""
         with self._b.localForm() as b_loc:
             b_loc.set(0)
@@ -371,6 +414,9 @@ class LinearProblem:
         Returns:
             fem.Function: Solved function
         """
+        if not self.assemble_options['assemble_A']: self._assemble_A()
+        if not self.assemble_options['assemble_b']: self._assemble_b()
+
         result = self._solver.solve(self._b, self._u.vector)
         self._u.x.scatter_forward()
         return result
@@ -416,6 +462,7 @@ class LinearProblem:
         return self._solver
 
 
+# TODO: Make succession
 class NonlinearProblem:
     """Create nonlinear problem
 
@@ -498,8 +545,8 @@ class NonlinearProblem:
         Returns:
             fem.Function: Solved function
         """
-        self._solver.solve(self._u)
-        return self._u
+        result = self._solver.solve(self._u)
+        return result
 
     @staticmethod
     def KSP_types():
@@ -528,6 +575,15 @@ class NonlinearProblem:
 
 
 # Post process
+def clear_savedir(path_save):
+    """Clear directory in VTK folder"""
+    try:
+        _shutil.rmtree(path_save)
+        print(f'Directory: <{path_save}> cleared')
+    except:
+        print(f'Directory: <{path_save}> empty yet')
+
+
 class PostProcess:
     """Class for different methods to plot functions"""
 
@@ -586,13 +642,25 @@ class PostProcess:
             lists (fem.Function, str): List of (u, title)
             points_on (bool): If true create scatter
         """
+        tol = 0.000001
+        num_points = 100
         for lis in lists:
             u, title = lis
-            x_cord = u.function_space.mesh.geometry.x[:, 0]
-            y_cord = u.x.array
+            domain = u.function_space.mesh
+            x_dofs = u.function_space.tabulate_dof_coordinates()[:, 0]
+            x_min = min(x_dofs)
+            x_max = max(x_dofs)
+
+            line = _np.zeros((3, num_points + 1))
+            line[0] = _np.linspace(x_min + tol, x_max - tol, num_points + 1)
+            collision_line = PostProcess.line_collision(
+                domain=domain,
+                line_cord=line,
+                )
+            line[1] = u.eval(*collision_line)[:, 0]
             ax.set_title(title)
-            if points_on: ax.scatter(x_cord, y_cord)
-            ax.plot(x_cord, y_cord, label=title)
+            if points_on: ax.scatter(line[0], line[1])
+            ax.plot(line[0], line[1], label=title)
 
         ax.legend(loc='upper left', facecolor='yellow')
         return
@@ -644,3 +712,15 @@ class PostProcess:
         """
         L1 = Function(space, abs(u1 - u0))
         return L1
+
+
+class Inner_parametrs:
+
+    def __init__(self, parametrs: dict) -> None:
+        # FIXME: how make more beatiful?
+        for key, value in parametrs.items():
+            if isinstance(value, dict) and value.get('dict_flag') is None:
+                value = Inner_parametrs(value)
+            elif isinstance(value, dict) and value.get('dict_flag') is True:
+                value.pop('dict_flag', None)
+            setattr(self, key, value)
