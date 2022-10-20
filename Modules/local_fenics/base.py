@@ -9,6 +9,9 @@ import ufl as _ufl
 
 import shutil as _shutil
 
+from ufl import FacetNormal, SpatialCoordinate,Measure
+from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions
+from dolfinx.fem import FunctionSpace
 
 # Operators
 class _Infix:
