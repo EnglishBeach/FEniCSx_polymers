@@ -1,0 +1,38 @@
+{
+    "ASave": {
+        "dir_save": "/home/VTK/System1D_files/",
+        "file_name": "/system1D",
+        "save_name": "13"
+    },
+    "BCoeffitients": {
+        "A": "f= gen_difRate*f_rate*exp(-P/stepwise_cP) for a without exp!",
+        "a_rate": 0.1,
+        "b_rate": 0.1,
+        "e_rate": 1,
+        "gamma": 4,
+        "gen_difRate": 0.01,
+        "stepwise_cP": 0.13
+    },
+    "CInitial_conditions": {
+        "N0_value": 0.2,
+        "P0_value": 0.001
+    },
+    "DQuality": {
+        "T": 2,
+        "domain_intervals": 1000,
+        "dt": 0.02,
+        "n_shecks": 25,
+        "n_steps": 100
+    },
+    "ESolve": {
+        "petsc_options": {
+            "ksp_type": "preonly",
+            "pc_factor_mat_solver_type": "mumps",
+            "pc_type": "lu"
+        },
+        "solve_options": {
+            "convergence": "incremental",
+            "tolerance": 1e-06
+        }
+    }
+}
