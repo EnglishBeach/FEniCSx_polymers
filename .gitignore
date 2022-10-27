@@ -1,3 +1,5 @@
 VTK
 Modules/build
 Modules/local_fenics.egg-info
+FEniCSxTutorial/A_plots
+Solver/Solves
