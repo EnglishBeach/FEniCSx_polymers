@@ -40,27 +40,74 @@
   +  { 0 } * ds(<Mesh #0>[everywhere], {})
 
 
+    fenics general
+  +  {
+ v * 100.0 * (N -N) 
+} * dx
 
-{ u * 1000.0 * (P -P) } * dx
-  +  { -((
-( grad(N) * P * E_NP ) + 
-( grad(N) * P * -E_NP ) + 
-( grad(P) * N * -E_NP ) + 
-( grad(P) * -E_NP ) + 
-( grad(P) * N * E_NP )) . (grad(u))) } * dx
+  +  {
+ -((
+   + ( grad(P) * E_NP * N ) 
+   + ( grad(P) * -A_NM * N ) 
+   + ( grad(N) * -E_NP * P ) 
+   + ( -A_NM * grad(N) ) 
+   + ( grad(N) * A_NM * P )
+ ) : grad(v)) 
+} * dx
 
+  +  {
+ u * 100.0 * (P -P) 
+} * dx
+
+  +  {
+ -((
+  + ( grad(N) * E_NP * P ) 
+  + ( grad(N) * -B_PM * P ) 
+  + ( grad(P) * -E_NP * N ) 
+  + ( -B_PM * grad(P) ) 
+  + ( grad(P) * B_PM * N )
+  ) . grad(u)) 
+} * dx
+
+  +  {
+ u * -light * REACTION 
+} * dx
+
+  +  {0 } * ds
+  +  {0 } * ds
 
 wolfram
-n(0.,x)==0.2
-p(0.,x)==0.001
 
-n^(1,0)(t,x)
-**+n^(0,2)(t,x)(-0.009 p(t,x)-0.001)
-==NeumannValue[0.,x==0\[Or]x==1.]
+-((
+   + ( grad(P) * E_NP * N ) 
+   + ( grad(P) * -A_NM * N ) 
+   + ( grad(N) * -E_NP * P ) 
+   + ( -A_NM * grad(N) ) 
+   + ( grad(N) * A_NM * P )
+ ) : grad(v)) 
 
-p^(1,0)(t,x)
--0.01 p^(0,2)(t,x)
-**+0.009 n(t,x) p^(0,2)(t,x)
--4. If[0.1<x<0.3\[And]1. n(t,x)+1. p(t,x)<=0.9999,0.7 (-1. n(t,x)-1. p(t,x)+1.) (-1. log((-1. n(t,x)-1. p(t,x)+1.)/(1. -1. n(t,x))))^0.75,0.]
-==NeumannValue[0.,x==0\[Or]x==1.]
+-ENP n(t,x) p^(0,2)(t,x)
++ANM n(t,x) p^(0,2)(t,x)
++ENP n^(0,2)(t,x) p(t,x)
++ANM n^(0,2)(t,x)
+-ANM n^(0,2)(t,x) p(t,x)
++\[CapitalGamma]n
+==n^(1,0)(t,x)
+
+-((
+  + ( grad(N) * E_NP * P ) 
+  + ( grad(N) * -B_PM * P ) 
+  + ( grad(P) * -E_NP * N ) 
+  + ( -B_PM * grad(P) ) 
+  + ( grad(P) * B_PM * N )
+  ) . grad(u)) 
+
+-ENP n^(0,2)(t,x) p(t,x)
++BPM n^(0,2)(t,x) p(t,x)
++ENP n(t,x) p^(0,2)(t,x)
++BPM p^(0,2)(t,x)
+-BPM n(t,x) p^(0,2)(t,x)
++\[CapitalGamma]p
++V
+==p^(1,0)(t,x)
 
