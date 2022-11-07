@@ -2,3 +2,4 @@ Modules/build
 Modules/local_fenics.egg-info
 Solver/Solves
 Other/Old/Solves
+test.py
