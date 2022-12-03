@@ -1,5 +1,5 @@
 from FEnicS_base import *
-from Parametrs import *
+import Parametrs as _pars
 from dolfinx import fem as _fem
 import ufl as _ufl
 import inspect as _inspect
@@ -28,7 +28,7 @@ class Comp_INTERFACE:
 
 class Comp_Element(Comp_INTERFACE):
 
-    def action(self, comp, data: Param_mesh, domain):
+    def action(self, comp, data: _pars.Param_mesh, domain):
         return _ufl.FiniteElement(
             family=data.family,
             cell=domain.ufl_cell(),
@@ -59,7 +59,7 @@ class Comp_Indicators(Comp_INTERFACE):
 
 class Task_Consts:
 
-    def __init__(self, indic: Comp_Indicators, data: Param_const):
+    def __init__(self, indic: Comp_Indicators, data: _pars.Param_const):
         p = indic.P
         n = indic.N
 
@@ -163,7 +163,7 @@ class Light_collection:
         return res
 
 
-def Task_light(x: SpatialCoordinate, data: Param_light):
+def Task_light(x: SpatialCoordinate, data: _pars.Param_light):
     res = Light_collection(
         x=x,
         x0=data.left,
@@ -180,7 +180,7 @@ def Task_light(x: SpatialCoordinate, data: Param_light):
 class BCS_collection:
 
     def __init__(
-        self, indic: Comp_Indicators, const: Task_Consts, data_mesh: Param_mesh
+        self, indic: Comp_Indicators, const: Task_Consts, data_mesh: _pars.Param_mesh
     ):
         self.indic = indic
         self.const = const
@@ -252,9 +252,9 @@ class Comp_bcs(Comp_INTERFACE):
     def action(
         self,
         comp,
-        data: Param_bcs,
+        data: _pars.Param_bcs,
         indic: Comp_Indicators,
-        data_mesh: Param_mesh,
+        data_mesh: _pars.Param_mesh,
         const: Task_Consts
     ):
         factory = BCS_collection(indic=indic, const=const, data_mesh=data_mesh)
