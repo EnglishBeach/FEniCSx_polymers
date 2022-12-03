@@ -1,16 +1,14 @@
 # Base module
+import typing as _typing
+import shutil as _shutil
+import re as _re
+import numpy as _np
+
+import ufl as _ufl
 import dolfinx as _dolfinx
 from dolfinx import mesh as _mesh
 from dolfinx import fem as _fem
 from dolfinx import nls as _nls
-import ufl as _ufl
-import numpy as _np
-
-
-import typing as _typing
-import shutil as _shutil
-import re as _re
-
 from ufl import FacetNormal, SpatialCoordinate, Measure
 from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions
 from ufl import conditional
@@ -323,7 +321,6 @@ class LinearProblem:
             # self._A.setFromOptions()
             # self._b.setOptionsPrefix(problem_prefix)
             # self._b.setFromOptions()
-            pass
 
         self._u = u
         self.bcs = bcs
