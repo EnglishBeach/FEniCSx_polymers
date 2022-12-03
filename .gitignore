@@ -1,5 +1,7 @@
 Modules/build
 Modules/local_fenics.egg-info
+/Solver/__pycache__
 Solver/Solves
 Other/Old/Solves
 test.py
+test

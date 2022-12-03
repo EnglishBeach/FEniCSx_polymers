@@ -14,6 +14,12 @@ import re as _re
 from ufl import FacetNormal, SpatialCoordinate, Measure
 from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions
 from ufl import conditional
+from ufl import variable
+from ufl import diff as D
+from ufl import nabla_div, nabla_grad, grad, div
+from ufl import as_matrix as matrix
+from ufl import lhs, rhs, split
+from ufl import exp, sym, tr, sqrt, ln, sin, cos
 from dolfinx.fem import FunctionSpace
 
 
