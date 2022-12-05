@@ -10,7 +10,7 @@ from dolfinx import mesh as _mesh
 from dolfinx import fem as _fem
 from dolfinx import nls as _nls
 from ufl import FacetNormal, SpatialCoordinate, Measure
-from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions
+from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions,dx
 from ufl import conditional
 from ufl import variable
 from ufl import diff as D
@@ -270,166 +270,168 @@ class Constant:
 
 
 # Solvers
-class LinearProblem:
-    """Create linear  problem
+from dolfinx.fem.petsc import LinearProblem
+# FIXME
+# class LinearProblem:
+#     """Create linear  problem
 
-        Args:
-            a (ufl.Form): bilinear form
-            L (ufl.Form): linear form
-            bcs (Dirichlet): Dirichlet conditious.
-            u (fem.Function): Function to be solved.
-            \npetsc_options (dict): Options to petsc.
-            Defaults to { 'ksp_type': 'preonly', 'pc_type': 'lu' }.
-            \nassemble_options (dict): Options to assemble bilinear and linear forms.
-            Defaults to {'assebmle_A': True, 'assemble_B': True}.
-            \nghost_opions (dict): GhostUpdate potions.
-            Defaults to  {'addv': ADD,'mode': REVERSE}.
-            \nform_compiler_params (dict): Form compiler options.
-            Defaults to {}.
-            \njit_params (dict): JIT parmetrs.
-            Defaults to {}.
-        """
+#         Args:
+#             a (ufl.Form): bilinear form
+#             L (ufl.Form): linear form
+#             bcs (Dirichlet): Dirichlet conditious.
+#             u (fem.Function): Function to be solved.
+#             \npetsc_options (dict): Options to petsc.
+#             Defaults to { 'ksp_type': 'preonly', 'pc_type': 'lu' }.
+#             \nassemble_options (dict): Options to assemble bilinear and linear forms.
+#             Defaults to {'assebmle_A': True, 'assemble_B': True}.
+#             \nghost_opions (dict): GhostUpdate potions.
+#             Defaults to  {'addv': ADD,'mode': REVERSE}.
+#             \nform_compiler_params (dict): Form compiler options.
+#             Defaults to {}.
+#             \njit_params (dict): JIT parmetrs.
+#             Defaults to {}.
+#         """
 
-    def __init__(
-        self,
-        a: _ufl.Form,
-        L: _ufl.Form,
-        bcs: list,
-        u: _fem.Function,
-        petsc_options={
-            'ksp_type': 'preonly', 'pc_type': 'lu'
-        },
-        assemble_options={
-            'assemble_A': True, 'assemble_b': True
-        },
-        ghost_opions={},
-        form_compiler_params={},
-        jit_params={},
-    ):
-        # FIXME: Maybe need setiings options to forms or not?
-        def set_options(self, petsc_options):
-            ksp = self._solver
-            problem_prefix = f'dolfinx_solve_{id(self)}'
-            ksp.setOptionsPrefix(problem_prefix)
-            opts = _fem.petsc.PETSc.Options()
-            opts.prefixPush(problem_prefix)
-            for k, v in petsc_options.items():
-                opts[k] = v
-            opts.prefixPop()
-            ksp.setFromOptions()
-            # self._A.setOptionsPrefix(problem_prefix)
-            # self._A.setFromOptions()
-            # self._b.setOptionsPrefix(problem_prefix)
-            # self._b.setFromOptions()
+#     def __init__(
+#         self,
+#         a: _ufl.Form,
+#         L: _ufl.Form,
+#         bcs: list,
+#         u: _fem.Function,
+#         petsc_options={
+#             'ksp_type': 'preonly', 'pc_type': 'lu'
+#         },
+#         assemble_options={
+#             'assemble_A': True, 'assemble_b': True
+#         },
+#         ghost_opions={},
+#         form_compiler_params={},
+#         jit_params={},
+#     ):
+#         # FIXME: Maybe need setiings options to forms or not?
+#         def set_options(self, petsc_options):
+#             ksp = self._solver
+#             problem_prefix = f'dolfinx_solve_{id(self)}'
+#             ksp.setOptionsPrefix(problem_prefix)
+#             opts = _fem.petsc.PETSc.Options()
+#             opts.prefixPush(problem_prefix)
+#             for k, v in petsc_options.items():
+#                 opts[k] = v
+#             opts.prefixPop()
+#             ksp.setFromOptions()
+#             # self._A.setOptionsPrefix(problem_prefix)
+#             # self._A.setFromOptions()
+#             # self._b.setOptionsPrefix(problem_prefix)
+#             # self._b.setFromOptions()
 
-        self._u = u
-        self.bcs = bcs
+#         self._u = u
+#         self.bcs = bcs
 
-        # A form
-        self._a = _fem.form(
-            a,
-            form_compiler_params=form_compiler_params,
-            jit_params=jit_params,
-        )
-        self._A = _fem.petsc.create_matrix(self._a)
+#         # A form
+#         self._a = _fem.form(
+#             a,
+#             form_compiler_params=form_compiler_params,
+#             jit_params=jit_params,
+#         )
+#         self._A = _fem.petsc.create_matrix(self._a)
 
-        # b form
-        self._L = _fem.form(
-            L,
-            form_compiler_params=form_compiler_params,
-            jit_params=jit_params,
-        )
-        self._b = _fem.petsc.create_vector(self._L)
+#         # b form
+#         self._L = _fem.form(
+#             L,
+#             form_compiler_params=form_compiler_params,
+#             jit_params=jit_params,
+#         )
+#         self._b = _fem.petsc.create_vector(self._L)
 
-        # Creating solver
-        self._solver = _fem.petsc.PETSc.KSP().create(
-            self._u.function_space.mesh.comm
-        )
-        self._solver.setOperators(self._A)
-        set_options(self, petsc_options)
+#         # Creating solver
+#         self._solver = _fem.petsc.PETSc.KSP().create(
+#             self._u.function_space.mesh.comm
+#         )
+#         self._solver.setOperators(self._A)
+#         set_options(self, petsc_options)
 
-        # Another options
-        self._ghost_opions = {
-            'addv': _fem.petsc.PETSc.InsertMode.ADD,
-            'mode': _fem.petsc.PETSc.ScatterMode.REVERSE,
-        }
-        self._ghost_opions.update(ghost_opions)
+#         # Another options
+#         self._ghost_opions = {
+#             'addv': _fem.petsc.PETSc.InsertMode.ADD,
+#             'mode': _fem.petsc.PETSc.ScatterMode.REVERSE,
+#         }
+#         self._ghost_opions.update(ghost_opions)
 
-        # Assembling
-        self.assemble_options = assemble_options
-        if self.assemble_options['assemble_A']: self._assemble_A()
-        if self.assemble_options['assemble_b']: self._assemble_b()
+#         # Assembling
+#         self.assemble_options = assemble_options
+#         if self.assemble_options['assemble_A']: self._assemble_A()
+#         if self.assemble_options['assemble_b']: self._assemble_b()
 
-    def _assemble_A(self):
-        """Assemle bilinear form"""
-        self._A.zeroEntries()
-        _fem.petsc._assemble_matrix_mat(self._A, self._a, bcs=self.bcs)
-        self._A.assemble()
+#     def _assemble_A(self):
+#         """Assemle bilinear form"""
+#         self._A.zeroEntries()
+#         _fem.petsc._assemble_matrix_mat(self._A, self._a, bcs=self.bcs)
+#         self._A.assemble()
 
-    def _assemble_b(self):
-        """Assemble linear form"""
-        with self._b.localForm() as b_loc:
-            b_loc.set(0)
-        _fem.petsc.assemble_vector(self._b, self._L)
-        _fem.petsc.apply_lifting(self._b, [self._a], bcs=[self.bcs])
-        self._b.ghostUpdate(
-            addv=self._ghost_opions['addv'],
-            mode=self._ghost_opions['mode'],
-        )
-        _fem.petsc.set_bc(self._b, self.bcs)
+#     def _assemble_b(self):
+#         """Assemble linear form"""
+#         with self._b.localForm() as b_loc:
+#             b_loc.set(0)
+#         _fem.petsc.assemble_vector(self._b, self._L)
+#         _fem.petsc.apply_lifting(self._b, [self._a], bcs=[self.bcs])
+#         self._b.ghostUpdate(
+#             addv=self._ghost_opions['addv'],
+#             mode=self._ghost_opions['mode'],
+#         )
+#         _fem.petsc.set_bc(self._b, self.bcs)
 
-    def solve(self):
-        """Solve function
+#     def solve(self):
+#         """Solve function
 
-        Returns:
-            fem.Function: Solved function
-        """
-        if not self.assemble_options['assemble_A']: self._assemble_A()
-        if not self.assemble_options['assemble_b']: self._assemble_b()
+#         Returns:
+#             fem.Function: Solved function
+#         """
+#         if not self.assemble_options['assemble_A']: self._assemble_A()
+#         if not self.assemble_options['assemble_b']: self._assemble_b()
 
-        result = self._solver.solve(self._b, self._u.vector)
-        self._u.x.scatter_forward()
-        return result
+#         result = self._solver.solve(self._b, self._u.vector)
+#         self._u.x.scatter_forward()
+#         return result
 
-    @staticmethod
-    def KSP_types():
-        """Get KSP types"""
-        return _fem.petsc.PETSc.KSP.Type
+#     @staticmethod
+#     def KSP_types():
+#         """Get KSP types"""
+#         return _fem.petsc.PETSc.KSP.Type
 
-    @staticmethod
-    def PC_types():
-        """Get PC types"""
-        return _fem.petsc.PETSc.PC.Type
+#     @staticmethod
+#     def PC_types():
+#         """Get PC types"""
+#         return _fem.petsc.PETSc.PC.Type
 
-    @staticmethod
-    def ghost_updates():
-        """Get ghost_update types"""
-        return (_fem.petsc.PETSc.InsertMode, _fem.petsc.PETSc.ScatterMode)
+#     @staticmethod
+#     def ghost_updates():
+#         """Get ghost_update types"""
+#         return (_fem.petsc.PETSc.InsertMode, _fem.petsc.PETSc.ScatterMode)
 
-    @property
-    def L(self) -> _fem.FormMetaClass:
-        """The compiled linear form"""
-        return self._L
+#     @property
+#     def L(self) -> _fem.FormMetaClass:
+#         """The compiled linear form"""
+#         return self._L
 
-    @property
-    def a(self) -> _fem.FormMetaClass:
-        """The compiled bilinear form"""
-        return self._a
+#     @property
+#     def a(self) -> _fem.FormMetaClass:
+#         """The compiled bilinear form"""
+#         return self._a
 
-    @property
-    def A(self) -> _fem.petsc.PETSc.Mat:
-        """Matrix operator"""
-        return self._A
+#     @property
+#     def A(self) -> _fem.petsc.PETSc.Mat:
+#         """Matrix operator"""
+#         return self._A
 
-    @property
-    def b(self) -> _fem.petsc.PETSc.Vec:
-        """Right-hand side vector"""
-        return self._b
+#     @property
+#     def b(self) -> _fem.petsc.PETSc.Vec:
+#         """Right-hand side vector"""
+#         return self._b
 
-    @property
-    def solver(self) -> _fem.petsc.PETSc.KSP:
-        """Linear solver object"""
-        return self._solver
+#     @property
+#     def solver(self) -> _fem.petsc.PETSc.KSP:
+#         """Linear solver object"""
+#         return self._solver
 
 
 class NonlinearProblem:
