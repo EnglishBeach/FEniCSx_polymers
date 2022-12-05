@@ -10,7 +10,7 @@ from dolfinx import mesh as _mesh
 from dolfinx import fem as _fem
 from dolfinx import nls as _nls
 from ufl import FacetNormal, SpatialCoordinate, Measure
-from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions,dx
+from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions, dx
 from ufl import conditional
 from ufl import variable
 from ufl import diff as D
@@ -19,6 +19,7 @@ from ufl import as_matrix as matrix
 from ufl import lhs, rhs, split
 from ufl import exp, sym, tr, sqrt, ln, sin, cos
 from dolfinx.fem import FunctionSpace
+from matplotlib import pyplot as _plt
 
 
 # Operators
@@ -544,3 +545,71 @@ class NonlinearProblem:
     def a(self) -> _fem.FormMetaClass:
         """The compiled bilinear form"""
         return self._a
+
+
+# Postprocess
+def func_plot1D(
+    funcs: list,
+    fig=None,
+    ax=None,
+    show_points=False,
+):
+    """Create plot from fem.Function
+    Args:
+        funcs (fem.Function, str): list of functions
+        show_points (bool): To show points on plot
+        fig (plt.Figure): Figure to go back it
+        ax (plt.axes): Axes to go back it
+    """
+    if (fig or ax) is None:
+        fig, ax = _plt.subplots(facecolor='White')
+        fig.set_size_inches(16, 8)
+    for func in funcs:
+        x = func.function_space.tabulate_dof_coordinates()[:, 0]
+        y = func.x.array
+        cord = _np.array([x, y])
+        cord = cord[:, _np.argsort(cord[0])]
+        ax.plot(cord[0], cord[1], label=func.name, linewidth=1)
+        if show_points: ax.scatter(cord[0], cord[1], s=0.5)
+    ax.legend(
+        bbox_to_anchor=(1.01, 0.5),
+        borderaxespad=0,
+        loc='center left',
+    )
+    return ax
+
+
+def func_plot2D(
+    func,
+    show_points=False,
+    smooth_show=True,
+    fig=None,
+    ax=None,
+):
+    """Create plot from fem.Function
+    Args:
+        func (fem.Function, str): Function
+        show_points (bool): To show real function mesh
+        smooth_show (bool): To show smoth plot instead real plot
+        fig (plt.Figure): Figure to go back it
+        ax (plt.axes): Axes to go back it
+    """
+    if (fig or ax) is None:
+        fig, ax = _plt.subplots(facecolor='White')
+        fig.set_size_inches(10, 10)
+
+    data = _np.column_stack((
+        func.function_space.tabulate_dof_coordinates()[:, 0:2],
+        func.x.array,
+    ))
+    data = data.transpose()
+
+    y = func.x.array
+    if smooth_show:
+        plot = ax.tripcolor(*data)
+    else:
+        levels = _np.linspace(func.x.array.min(), func.x.array.max(), 10)
+        plot = ax.tricontourf(*data, levels=levels)
+    if show_points: ax.plot(data[0], data[1], 'o', markersize=2, color='grey')
+    fig.colorbar(plot, ax=ax)
+    return ax
