@@ -25,11 +25,12 @@ class BaseModel(pe.Model):
 class Mesh1D(BaseModel):
 
     class Meta:
-        indexes = ((('left', 'right', 'intervals', 'degree'), True), )
+        indexes = ((('left', 'right', 'domain_intervals','family', 'degree'), True), )
 
     left = pe.FloatField()
     right = pe.FloatField()
-    intervals = pe.IntegerField()
+    domain_intervals = pe.IntegerField()
+    family = pe.CharField(10)
     degree = pe.IntegerField()
     description = pe.CharField(
         50,
