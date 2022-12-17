@@ -42,11 +42,11 @@ class Param_time(Param_INTERFACE):
 class Param_mesh(Param_INTERFACE):
 
     def __init__(
-        self, left=0, right=1, domain_intervals=100, degree=1, family='CG'
+        self, left=0, right=1, intervals=100, degree=1, family='CG'
     ):
         self.left = left
         self.right = right
-        self.domain_intervals = domain_intervals
+        self.intervals = intervals
         self.family = family
         self.degree = degree
 
@@ -95,21 +95,21 @@ class Param_solve_confs(Param_INTERFACE):
 
     def __init__(
         self,
-        petsc_options={
+        petsc_opts={
             'ksp_type': 'preonly',
             'pc_type': 'lu',
             'pc_factor_mat_solver_type': 'mumps'
         },
-        solve_options={
+        solve_opts={
             'convergence': 'incremental', 'tolerance': 1E-6
         },
-        form_compiler_params={},
-        jit_params={}
+        form_opts={},
+        jit_opts={}
     ):
-        self.petsc_options = petsc_options
-        self.solve_options = solve_options
-        self.form_compiler_params = form_compiler_params
-        self.jit_params = jit_params
+        self.petsc_opts = petsc_opts
+        self.solve_opts = solve_opts
+        self.form_opts = form_opts
+        self.jit_opts = jit_opts
 
 
 class Param_bcs(Param_INTERFACE):

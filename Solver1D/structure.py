@@ -29,7 +29,7 @@ class Mesh1D(BaseModel):
 
     left = pe.FloatField()
     right = pe.FloatField()
-    domain_intervals = pe.IntegerField()
+    intervals = pe.IntegerField()
     family = pe.CharField(10)
     degree = pe.IntegerField()
     description = pe.CharField(
