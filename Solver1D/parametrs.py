@@ -42,11 +42,11 @@ class Param_time(Param_INTERFACE):
 class Param_mesh(Param_INTERFACE):
 
     def __init__(
-        self, left=0, right=1, intervals=100, degree=1, family='CG'
+        self, left=0, right=1, domain_intervals=100, degree=1, family='CG'
     ):
         self.left = left
         self.right = right
-        self.intervals = intervals
+        self.domain_intervals = domain_intervals
         self.family = family
         self.degree = degree
 
