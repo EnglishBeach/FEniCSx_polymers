@@ -25,10 +25,10 @@ class BaseModel(pe.Model):
 class Mesh1D(BaseModel):
 
     class Meta:
-        indexes = ((('left', 'right', 'intervals','family', 'degree'), True), )
+        indexes = ((('left', 'right', 'intervals', 'family', 'degree'), True), )
 
-    left = pe.FloatField()
-    right = pe.FloatField()
+    left = pe.DecimalField()
+    right = pe.DecimalField()
     intervals = pe.IntegerField()
     family = pe.CharField(10)
     degree = pe.IntegerField()
@@ -40,10 +40,10 @@ class Light1D(BaseModel):
     class Meta:
         indexes = ((('kind', 'left', 'right', 'slope'), True), )
 
-    kind = pe.CharField(10)
-    left = pe.FloatField()
-    right = pe.FloatField()
-    slope = pe.FloatField()
+    kind = pe.CharField(20)
+    left = pe.DecimalField()
+    right = pe.DecimalField()
+    slope = pe.DecimalField()
 
 
 # FIXME: dicts
@@ -73,15 +73,15 @@ class Task(BaseModel):
         null=True,
     )
 
-    T = pe.FloatField()
-    dt = pe.FloatField()
+    T = pe.DecimalField()
+    dt = pe.DecimalField()
     mesh = pe.ForeignKeyField(
         Mesh1D,
         backref='tasks',
         on_update='cascade',
     )
-    N0 = pe.FloatField()
-    P0 = pe.FloatField()
+    N0 = pe.DecimalField()
+    P0 = pe.DecimalField()
     light = pe.ForeignKeyField(
         Light1D,
         backref='tasks',
@@ -102,7 +102,7 @@ class Const(BaseModel):
         indexes = ((('parametr', 'task'), True), )
 
     parametr = pe.CharField(20)
-    value = pe.FloatField()
+    value = pe.DecimalField()
     task = pe.ForeignKeyField(
         Task,
         backref='consts',
