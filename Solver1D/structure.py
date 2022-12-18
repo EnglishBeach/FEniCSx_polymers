@@ -25,17 +25,13 @@ class BaseModel(pe.Model):
 class Mesh1D(BaseModel):
 
     class Meta:
-        indexes = ((('left', 'right', 'domain_intervals','family', 'degree'), True), )
+        indexes = ((('left', 'right', 'intervals','family', 'degree'), True), )
 
     left = pe.FloatField()
     right = pe.FloatField()
     intervals = pe.IntegerField()
     family = pe.CharField(10)
     degree = pe.IntegerField()
-    description = pe.CharField(
-        50,
-        null=True,
-    )
 
 
 @ready
@@ -67,17 +63,12 @@ class Solver(BaseModel):
         null=True,
     )
 
-    description = pe.CharField(
-        50,
-        null=True,
-    )
-
 
 @ready
 class Task(BaseModel):
     name = pe.CharField(50)
     date = pe.DateTimeField(default=pe.datetime.datetime.now)
-    description = pe.CharField(
+    desc = pe.CharField(
         50,
         null=True,
     )
@@ -97,7 +88,7 @@ class Task(BaseModel):
         on_update='cascade',
     )
 
-    solve = pe.ForeignKeyField(
+    solver = pe.ForeignKeyField(
         Solver,
         backref='tasks',
         on_update='cascade',
