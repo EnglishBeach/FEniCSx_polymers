@@ -2,5 +2,9 @@ Modules/build
 Modules/local_fenics.egg-info
 Other/Old/Solves
 
+FEniCSxTutorial/A_plots
+
 Solver1D/__pycache__
 Solver1D/Solves
+
+Test/__pycache__
