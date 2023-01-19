@@ -63,33 +63,6 @@ def I(func_like):
 
 
 # Functions:
-class ArrayFunc:
-
-    def __init__(self, func: _fem.Function, name=None):
-        self.cord = _np.array([
-            func.function_space.tabulate_dof_coordinates()[:, 0],
-            func.x.array,
-        ])
-        self._sort()
-        self.cord = _np.array([[a, b]for a, b in enumerate(self.cord[1])]).transpose() #yapf: disable
-        self.len = len(self.cord[0])
-        self.name = name
-
-    def _sort(self):
-        self.cord = self.cord[:, _np.argsort(self.cord[0])]
-
-    def translate(self, point_0):
-        x_new = (self.cord[0] - point_0)
-        self.cord[0] = x_new - self.len * (x_new // (self.len))
-        self._sort()
-
-    def mirror(self, point_0):
-        self.translate(point_0)
-        self.cord[0] = -self.cord[0]
-        self.cord[0] += self.len
-        self._sort()
-
-
 def get_space_dim(space):
     """Get dimensions of X on space
 
@@ -147,63 +120,31 @@ def set_connectivity(domain):
 
 
 # Classes
-class DirichletBC:
-    """
-    Create Dirichlet condition.
+class ArrayFunc:
 
-    Args:
-        space (fem.FunctionSpace): Function space.
-        For several spaces:: first space is general.
-        form (any function): Function
-        combined_marker (Any): One from next::
-        \nFunction - boundary marker function find geometrical
-        \nAll - all boundary find entities
-        \n(mesh.meshtags, marker) -Find entities marker of boundary from mesh tags
+    def __init__(self, func: _fem.Function, name=None):
+        self.cord = _np.array([
+            func.function_space.tabulate_dof_coordinates()[:, 0],
+            func.x.array,
+        ])
+        self._sort()
+        self.cord = _np.array([[a, b]for a, b in enumerate(self.cord[1])]).transpose() #yapf: disable
+        self.len = len(self.cord[0])
+        self.name = name
 
-    Returns:
-        condition (dirichletbc): Dirichlet condition
-    """
+    def _sort(self):
+        self.cord = self.cord[:, _np.argsort(self.cord[0])]
 
-    def __new__(cls, space, form, combined_marker):
+    def translate(self, point_0):
+        x_new = (self.cord[0] - point_0)
+        self.cord[0] = x_new - self.len * (x_new // (self.len))
+        self._sort()
 
-        def set_dirichlet(dofs, form, space):
-            if hasattr(form, 'function_space'):
-                if form.function_space == space:
-                    bc = _fem.dirichletbc(dofs=dofs, value=form)
-                else:
-                    bc = _fem.dirichletbc(V=space, dofs=dofs, value=form)
-            else:
-                bc = _fem.dirichletbc(V=space, dofs=dofs, value=form)
-            return bc
-
-        # FIXME: Maybe listable?
-        if isinstance(space, tuple or list): space0 = space[0]
-        else: space0 = space
-        domain = space0.mesh
-
-        if combined_marker == 'All':
-            facets = _mesh.exterior_facet_indices(domain.topology)
-            dofs = _fem.locate_dofs_topological(
-                space,
-                domain.topology.dim - 1,
-                facets,
-            )
-
-        elif isinstance(combined_marker, tuple or list):
-            marked_facets, marker = combined_marker
-            facets = marked_facets.find(marker)
-            dofs = _fem.locate_dofs_topological(
-                space,
-                domain.topology.dim - 1,
-                facets,
-            )
-
-        else:
-            dofs = _fem.locate_dofs_geometrical(space, combined_marker)
-
-        bc = set_dirichlet(dofs, form, space0)
-
-        return bc
+    def mirror(self, point_0):
+        self.translate(point_0)
+        self.cord[0] = -self.cord[0]
+        self.cord[0] += self.len
+        self._sort()
 
 
 class Function:
@@ -219,16 +160,13 @@ class Function:
     """
 
     def __new__(cls, space, form=None, name=None):
-
-        # FIXME: x-x not beauty
-
         func = _fem.Function(space)
         if name is not None: func.name = name
         if form is None: return func
 
         form_type = str(form.__class__)[8:-2]
         cords = _ufl.SpatialCoordinate(space)
-        
+
         if form_type == ('dolfinx.fem.function.Function'):
             expression = Function.from_fem(space, cords, form)
 
@@ -316,6 +254,65 @@ class Constant:
             fem.function.Constant: Constant on space
         """
         return _fem.Constant(domain_space, _fem.petsc.PETSc.ScalarType(const))
+
+
+class DirichletBC:
+    """
+    Create Dirichlet condition.
+
+    Args:
+        space (fem.FunctionSpace): Function space.
+        For several spaces:: first space is general.
+        form (any function): Function
+        combined_marker (Any): One from next::
+        \nFunction - boundary marker function find geometrical
+        \nAll - all boundary find entities
+        \n(mesh.meshtags, marker) -Find entities marker of boundary from mesh tags
+
+    Returns:
+        condition (dirichletbc): Dirichlet condition
+    """
+
+    def __new__(cls, space, form, combined_marker):
+
+        def set_dirichlet(dofs, form, space):
+            if hasattr(form, 'function_space'):
+                if form.function_space == space:
+                    bc = _fem.dirichletbc(dofs=dofs, value=form)
+                else:
+                    bc = _fem.dirichletbc(V=space, dofs=dofs, value=form)
+            else:
+                bc = _fem.dirichletbc(V=space, dofs=dofs, value=form)
+            return bc
+
+        # FIXME: Maybe listable?
+        if isinstance(space, tuple or list): space0 = space[0]
+        else: space0 = space
+        domain = space0.mesh
+
+        if combined_marker == 'All':
+            facets = _mesh.exterior_facet_indices(domain.topology)
+            dofs = _fem.locate_dofs_topological(
+                space,
+                domain.topology.dim - 1,
+                facets,
+            )
+
+        elif isinstance(combined_marker, tuple or list):
+            marked_facets, marker = combined_marker
+            facets = marked_facets.find(marker)
+            dofs = _fem.locate_dofs_topological(
+                space,
+                domain.topology.dim - 1,
+                facets,
+            )
+
+        else:
+            dofs = _fem.locate_dofs_geometrical(space, combined_marker)
+
+        bc = set_dirichlet(dofs, form, space0)
+
+        return bc
 
 
 # Solvers
@@ -502,8 +499,6 @@ def func_plot2D(
     return ax
 
     # FIXME
-
-
 # class LinearProblem:
 #     """Create linear  problem
 
