@@ -25,7 +25,7 @@ class Param_save(Param_INTERFACE):
 
 class Param_time(Param_INTERFACE):
 
-    def __init__(self, T=1, n_steps=100, dt=1, n_shecks=10):
+    def __init__(self, T=1, n_steps=100, dt=1, n_checks=10):
         if dt == 1:
             dt = T / n_steps
         elif n_steps == 100:
@@ -36,7 +36,7 @@ class Param_time(Param_INTERFACE):
         self.T = T
         self.dt = dt
         self.n_steps = n_steps
-        self.n_shecks = n_shecks
+        self.n_checks = n_checks
 
 
 class Param_mesh(Param_INTERFACE):

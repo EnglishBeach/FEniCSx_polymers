@@ -23,14 +23,14 @@ from matplotlib import pyplot as _plt
 
 
 # Operators
-class _Infix:
+class Infix:
     """Create infix function from default"""
 
     def __init__(self, function):
         self.function = function
 
     def __ror__(self, other):
-        return _Infix(lambda x, self=self, other=other: self.function(other, x))
+        return Infix(lambda x, self=self, other=other: self.function(other, x))
 
     def __or__(self, other):
         return self.function(other)
@@ -39,11 +39,11 @@ class _Infix:
         return self.function(value1, value2)
 
 
-dot = _Infix(_ufl.dot)
-inner = _Infix(_ufl.inner)
+dot = Infix(_ufl.dot)
+inner = Infix(_ufl.inner)
 
-npor = _Infix(_np.logical_or)
-npand = _Infix(_np.logical_and)
+npor = Infix(_np.logical_or)
+npand = Infix(_np.logical_and)
 
 
 def vector(*args):
