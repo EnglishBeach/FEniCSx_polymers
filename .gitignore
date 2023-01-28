@@ -1,10 +1,5 @@
-Modules/build
-Modules/local_fenics.egg-info
-
-Other/Old/Solves
+**/Solves
 FEniCSxTutorial/A_plots
-Solver1D/Solves
 
-Solver1D/Classes/__pycache__
-Solver1D/DataBase/__pycache__
-Solver1D/DataBase/__pycache__
+
+**/__pycache__
