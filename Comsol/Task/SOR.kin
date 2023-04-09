@@ -1,0 +1,32 @@
+<Reactions>
+
+Hin + DH = Hin_m + DH_p
+Hin_m + DH_p = HinH + D
+HinH + D = HinHD
+# 2
+HinH + HinH = Hin + Pyr
+Hin + Pyr = HinH + HinH
+# 3
+Hin + HinHD = HinH + HinD
+# 4
+HinD = Hin + D
+Hin + D = HinD
+# 5
+HinHD = Pyr + WTF
+# 6
+D + D = WTF
+# 7
+Hin = WTF
+
+<Initial concentrations>
+
+
+<Temperature>
+
+298.15, 0, 0
+
+<Time grid>
+
+0 (auto) 1
+
+<End of data>

@@ -1,0 +1,60 @@
+Reactions and rate constants
+
+ 1. Hin + DH = Hin_m + DH_p
+ 2. Hin_m + DH_p = HinH + D
+ 3. HinH + D = HinHD
+# 2
+ 4. HinH + HinH = Hin + Pyr
+ 5. Hin + Pyr = HinH + HinH
+# 3
+ 6. Hin + HinHD = HinH + HinD
+# 4
+ 7. HinD = Hin + D
+ 8. Hin + D = HinD
+# 5
+ 9. HinHD = Pyr + WTF
+# 6
+10. D + D = WTF
+# 7
+11. Hin = WTF
+
+Equations of the model
+
+d[Hin]/dt = -R1 + R4 - R5 - R6 + R7 - R8 - R11
+d[DH]/dt = -R1
+d[Hin_m]/dt = R1 - R2
+d[DH_p]/dt = R1 - R2
+d[HinH]/dt = R2 - R3 - 2*R4 + 2*R5 + R6
+d[D]/dt = R2 - R3 + R7 - R8 - 2*R10
+d[HinHD]/dt = R3 - R6 - R9
+d[Pyr]/dt = R4 - R5 + R9
+d[HinD]/dt = R6 - R7 + R8
+d[WTF]/dt = R9 + R10 + R11
+
+where
+
+R1 = k1*[Hin]*[DH]
+R2 = k2*[Hin_m]*[DH_p]
+R3 = k3*[HinH]*[D]
+R4 = k4*[HinH]*[HinH]
+R5 = k5*[Hin]*[Pyr]
+R6 = k6*[Hin]*[HinHD]
+R7 = k7*[HinD]
+R8 = k8*[Hin]*[D]
+R9 = k9*[HinHD]
+R10 = k10*[D]*[D]
+R11 = k11*[Hin]
+
+Initial concentrations
+
+[Hin] = 0
+[DH] = 0
+[Hin_m] = 0
+[DH_p] = 0
+[HinH] = 0
+[D] = 0
+[HinHD] = 0
+[Pyr] = 0
+[HinD] = 0
+[WTF] = 0
+
