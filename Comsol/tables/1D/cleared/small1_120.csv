@@ -1,7 +1,3 @@
-% Model,SOR optimaze.mph
-% Version,COMSOL 6.0.0.318
-% Date,"Apr 26 2023, 10:30"
-% Table,Table intehrals 1D - Time integral
 % k1,"Time=0.001, target"
 0.000000000000000,0.000000000000000
 1.000000000000000,2.297553123496655E-9
