@@ -1,22 +1,22 @@
 <Reactions>
 
-Hin + DH = Hin_m + DH_p
-Hin_m + DH_p = HinH + D
-HinH + D = HinHD
+Q + DH = Q_m + DH_p
+Q_m + DH_p = QH + D
+QH + D = QHD
 # 2
-HinH + HinH = Hin + Pyr
-Hin + Pyr = HinH + HinH
+QH + QH = Q + QHH
+Q + QHH = QH + QH
 # 3
-Hin + HinHD = HinH + HinD
+Q + QHD = QH + QD
 # 4
-HinD = Hin + D
-Hin + D = HinD
+QD = Q + D
+Q + D = QD
 # 5
-HinHD = Pyr + WTF
+QHD = QHH + prod
 # 6
-D + D = WTF
+D + D = prod
 # 7
-Hin = WTF
+Q = prod
 
 <Initial concentrations>
 
