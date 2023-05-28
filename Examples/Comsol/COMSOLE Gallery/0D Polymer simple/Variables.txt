@@ -1,4 +1,0 @@
-vf_cond1 vfmax*(1-step1(t/1[s])) Volumetric feed rate operating condition 1
-vf_condc -re.vp*step1(t/1[s]) Volumetric feed rate compensating for the volumetric production in operating condition 2
-vfs vf_cond1+fill*vf_condc Volumetric feed rate
-m_mon re.c_M*re.M_M*re.Vr Monomer mass

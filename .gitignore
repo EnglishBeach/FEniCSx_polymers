@@ -2,3 +2,5 @@
 FEniCSxTutorial/A_plots
 **/__pycache__
 polymer_env
+Comsol/tables/temp_tables/**
+Comsol/Task/Batch/**
