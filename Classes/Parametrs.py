@@ -17,7 +17,7 @@ class confs:
             compound_key in self._recursion_view__()
         ]
         print('\n'.join(key_list))
-
+    # TODO: str -> list to keys output
     def _recursion_view__(self, keys=''):
         if isinstance(self, confs):
             for key in self.get_keys__():
@@ -26,6 +26,8 @@ class confs:
                         str(keys) + '  ' + str(key),
                 ):
                     yield inner_key
+        elif isinstance(self, np.ndarray|range):
+            yield (f'[{self[0]}, {self[1]} .. {self[-2]}, {self[-1]}]; len = {len(self)}', keys)
         else:
             yield (self, keys)
 
@@ -60,6 +62,7 @@ class rates(confs):
     e = 1
     gamma = 4
 
+
 class light_confs(confs):
     type = 'stepwise'
     left = 0.4
@@ -72,23 +75,23 @@ class initial(confs):
     P = 0.001
 
 
-class time_confs(confs):
-    time = np.linspace(0, 1, 101)
-    check = time[::10]
+class time(confs):
+    line = np.linspace(0, 1, 101)
+    check = line[::10]
 
 
 class save_confs(confs):
     file_name = 'solve'
-    dir_save = '/home/Solves/'
+    dir = '/home/Solves/'
 
-    def __init__(self,name=None,desc=None):
+    def __init__(self, name=None, desc=None):
         if name is not None:
-            self.save_name = name
+            self.solution_name = name
             self.description = desc
         else:
             while True:
-                self.save_name = input('Set name')
-                if self.save_name != '': break
+                self.solution_name = input('Set name')
+                if self.solution_name != '': break
 
             while True:
                 self.description = input('Set description')
@@ -99,14 +102,14 @@ class Data(confs):
     solver_confs = solver_confs()
     mesh_confs = mesh_confs()
     bcs = {'type': 'close'}
-    time = time_confs()
+    time = time()
 
     rates = rates()
     light_confs = light_confs()
     initial = initial()
 
-    def __init__(self,*args,**kwargs) -> None:
-        self.save_confs = save_confs(*args,**kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        self.save_confs = save_confs(*args, **kwargs)
 
     # def dump(self,save=False):
 
