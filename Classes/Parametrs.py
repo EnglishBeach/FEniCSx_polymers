@@ -1,152 +1,132 @@
-class Param_INTERFACE:
+"""
+Standart parametrs for study.
+"""
 
-    def get_param(self, name):
-        assert name != 'get_param'
-        return getattr(self, name)
+import numpy as np
+import jsonpickle as jp
 
 
-class Param_save(Param_INTERFACE):
+class confs:
 
-    def __init__(self, save_name='test', desc=None,dir_save='/home/Solver1D/Solves/' ):
-        self.dir_save = dir_save
-        self.file_name = '/system1D'
-        while True:
-            if save_name == 'input':
-                self.save_name = input('Set name')
-            else:
-                self.save_name = save_name
-            if self.save_name != '': break
+    def get_keys__(self):
+        return list(filter(lambda x: '__' not in x, self.__dir__()))
 
-        if desc == 'input':
-            self.desc = input('Set description')
+    def print_info__(self):
+        key_list = [
+            f'{compound_key}: {value}' for value,
+            compound_key in self._recursion_view__()
+        ]
+        print('\n'.join(key_list))
+
+    def _recursion_view__(self, keys=''):
+        if isinstance(self, confs):
+            for key in self.get_keys__():
+                for inner_key in confs._recursion_view__(
+                        self.__getattribute__(key),
+                        str(keys) + '  ' + str(key),
+                ):
+                    yield inner_key
         else:
-            self.desc = desc
+            yield (self, keys)
 
 
-class Param_time(Param_INTERFACE):
-
-    def __init__(self, T=1, n_steps=100, dt=1, n_checks=10):
-        if dt == 1:
-            dt = T / n_steps
-        elif n_steps == 100:
-            n_steps = int(T / dt)
-        elif T == 1:
-            T = n_steps * dt
-        assert T == n_steps * dt, ValueError('Incorrect time parametrs')
-        self.T = T
-        self.dt = dt
-        self.n_steps = n_steps
-        self.n_checks = n_checks
+class solver_confs(confs):
+    solving = {
+        'convergence': 'incremental',
+        'tolerance': 1E-6,
+    }
+    petsc = {
+        'ksp_type': 'preonly',
+        'pc_type': 'lu',
+        'pc_factor_mat_solver_type': 'mumps'
+    }
+    form = {}
+    jit = {}
 
 
-class Param_mesh(Param_INTERFACE):
-
-    def __init__(
-        self, left=0, right=1, intervals=100, degree=1, family='CG'
-    ):
-        self.left = left
-        self.right = right
-        self.intervals = intervals
-        self.family = family
-        self.degree = degree
+class mesh_confs(confs):
+    left = 0
+    right = 1
+    intervals = 100
+    degree = 1
+    family = 'CG'
 
 
-class Param_const(Param_INTERFACE):
+class rates(confs):
+    general = 0.01
+    P_step = 0.13
+    a = 0.1
+    b = 1
+    e = 1
+    gamma = 4
 
-    def __init__(
-        self,
-        gen_rate=0.01,
-        P_step=0.13,
-        a_rate=0.1,     # NM
-        b_rate=1,     # PM
-        e_rate=1     # NP
-    ):
-        self.gamma = 4
-        self.P_step = P_step
-        self.gen_rate = gen_rate
-        self.a_rate = a_rate
-        self.b_rate = b_rate
-        self.e_rate = e_rate
+class light_confs(confs):
+    type = 'stepwise'
+    left = 0.4
+    right = 0.6
+    smoothing = 100
 
 
-class Param_light(Param_INTERFACE):
-
-    def __init__(
-        self,
-        kind='sharp',
-        left=0.4,
-        right=0.6,
-        slope=100,
-    ):
-        self.kind = kind
-        self.left = left
-        self.right = right
-        self.slope = slope
+class initial(confs):
+    N = 0.2
+    P = 0.001
 
 
-class Param_initial(Param_INTERFACE):
-
-    def __init__(self, N0=0.2, P0=0.001):
-        self.N0 = N0
-        self.P0 = P0
+class time_confs(confs):
+    time = np.linspace(0, 1, 101)
+    check = time[::10]
 
 
-class Param_solve_confs(Param_INTERFACE):
+class save_confs(confs):
+    file_name = 'solve'
+    dir_save = '/home/Solves/'
 
-    def __init__(
-        self,
-        petsc_opts={
-            'ksp_type': 'preonly',
-            'pc_type': 'lu',
-            'pc_factor_mat_solver_type': 'mumps'
-        },
-        solve_opts={
-            'convergence': 'incremental', 'tolerance': 1E-6
-        },
-        form_opts={},
-        jit_opts={}
-    ):
-        self.petsc_opts = petsc_opts
-        self.solve_opts = solve_opts
-        self.form_opts = form_opts
-        self.jit_opts = jit_opts
+    def __init__(self,name=None,desc=None):
+        if name is not None:
+            self.save_name = name
+            self.description = desc
+        else:
+            while True:
+                self.save_name = input('Set name')
+                if self.save_name != '': break
+
+            while True:
+                self.description = input('Set description')
+                if self.description != '': break
 
 
-class Param_bcs(Param_INTERFACE):
+class Data(confs):
+    solver_confs = solver_confs()
+    mesh_confs = mesh_confs()
+    bcs = {'type': 'close'}
+    time = time_confs()
 
-    def __init__(self, bcs_kind='close', N_pars: list = {}, P_pars: list = {}):
-        self.kind = bcs_kind
-        self.N = N_pars
-        self.P = P_pars
+    rates = rates()
+    light_confs = light_confs()
+    initial = initial()
 
+    def __init__(self,*args,**kwargs) -> None:
+        self.save_confs = save_confs(*args,**kwargs)
 
-class Param_dump(Param_INTERFACE):
+    # def dump(self,save=False):
 
-    def __init__(self, consts={}, equations={}):
-        self.consts = consts
-        self.equations = equations
+    #     consts = CONST.copy()
+    #     DATA.dump.consts = {key: repr_str(value) for key, value in consts.items()}
+    #     consts.update({'LIGHT': LIHGT})
+    #     DATA.dump.equations = {
+    #         key: repr_str(value, consts)
+    #         for key, value in EQUATION.items()
+    #     }
 
-
-class Param_DATA(Param_INTERFACE):
-
-    def __init__(
-        self,
-        save=Param_save(),
-        time=Param_time(),
-        mesh=Param_mesh(),
-        consts=Param_const(),
-        light=Param_light(),
-        initial=Param_initial(),
-        bcs=Param_bcs(),
-        solve_confs=Param_solve_confs(),
-        dump=Param_dump()
-    ):
-        self.save = save
-        self.time = time
-        self.mesh = mesh
-        self.consts = consts
-        self.light = light
-        self.initial = initial
-        self.bcs = bcs
-        self.solve_confs = solve_confs
-        self.dump = dump
+    #         if not save:
+    #             print(DATA.dump.EQUATION_N)
+    #             print('*' * 80)
+    #             print(DATA.dump.EQUATION_P)
+    #         else:
+    #             with open(
+    #                 self.save_confs.dir_save + self.save_confs.save_name + self.save_confs.file_name +
+    #                 '_anotaton.txt',
+    #                 'w',
+    #             ) as annotation:
+    #                 annotation.write(jp.encode(self, numeric_keys=True, indent=4))
+    #         pass
