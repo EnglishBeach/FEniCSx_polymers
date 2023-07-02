@@ -1,4 +1,4 @@
-from classes import base as _b
+from classes import Base as _b
 import ufl as _ufl
 
 
@@ -10,16 +10,21 @@ class Simple1D:
         self.smoothing = smoothing
 
     def create(self, kind: str):
-        assert kind in Simple1D.styles(get=True), 'Not implemented method'
+        assert kind in Simple1D._style(get=True), 'Not implemented method'
         return getattr(self, kind)()
 
     @staticmethod
-    def styles(func=None, get=False, l=set()):
+    def _style(func=None, get=False, l=set()):
         if not get:
             l.add(func.__name__)
             return func
         else:
             return l
+
+    @classmethod
+    @property
+    def styles(cls):
+        return cls._style(get=True)
 
     def _singP(self):
         return (1 + _ufl.sign(self.smoothing)) / 2
@@ -27,7 +32,7 @@ class Simple1D:
     def _singM(self):
         return (1 - _ufl.sign(self.smoothing)) / 2
 
-    @styles
+    @_style
     def step(self):
         return _b.conditional(
             self.x0 <= self.x,
@@ -35,12 +40,12 @@ class Simple1D:
             self._singM(),
         )
 
-    @styles
+    @_style
     def sigmoid(self):
         a = self.smoothing * 5
         return 1 / (1 + _b.exp(-a * (self.x - self.x0)))
 
-    @styles
+    @_style
     def trapstep(self):
         a = self.smoothing
         result = _b.conditional(
@@ -56,7 +61,7 @@ class Simple1D:
         )
         return result
 
-    @styles
+    @_style
     def parab(self):
         a = self.smoothing * 5
         result = _b.conditional(
@@ -68,7 +73,8 @@ class Simple1D:
         result += _b.conditional(
             (self.x0 <= self.x)|_b.ufl_and|
             (self.x < self.x0 + 1 / _b.sqrt(abs(2 * a)), ),
-            -a * (self.x - self.x0 - 1 / _b.sqrt(abs(2 * a)))**2 + self._singP(),
+            -a * (self.x - self.x0 - 1 / _b.sqrt(abs(2 * a)))**2 +
+            self._singP(),
             0,
         )
         result += _b.conditional(
@@ -76,3 +82,16 @@ class Simple1D:
             self._singP(),
             self._singM())
         return result
+
+class A:
+    g=1
+    @property
+    def f(self):
+        return 1
+    def foo(self):
+        return 1
+
+a= A()
+a.f
+a.foo
+a.g

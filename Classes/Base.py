@@ -12,7 +12,7 @@ from dolfinx import mesh as _mesh
 from dolfinx import fem as _fem
 from dolfinx import nls as _nls
 from ufl import FacetNormal, SpatialCoordinate, Measure
-from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions, dx
+from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions
 from ufl import conditional
 from ufl import variable
 from ufl import diff as D
