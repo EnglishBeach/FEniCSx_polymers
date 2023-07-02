@@ -359,8 +359,8 @@ class NonlinearProblem:
             'pc_type': 'lu',
             'pc_factor_mat_solver_type': 'mumps',
         },
-        form_compiler_params={},
-        jit_params={},
+        form_compiler_options={},
+        jit_options={},
     ):
 
         def set_options(self, petsc_options, solve_options):
@@ -383,8 +383,8 @@ class NonlinearProblem:
             u=self._u,
             bcs=self.bcs,
             J=J,
-            form_compiler_params=form_compiler_params,
-            jit_params=jit_params,
+            form_compiler_params=form_compiler_options,
+            jit_params=jit_options,
         )
         self._a = pr.a
         self._L = pr.L

@@ -8,8 +8,9 @@ import jsonpickle as jp
 
 class confs:
 
-    def get_keys__(self):
-        return list(filter(lambda x: '__' not in x, self.__dir__()))
+    def get_confs__(self):
+        names = list(filter(lambda x: '__' not in x, self.__dir__()))
+        return {name: self.__getattribute__(name) for name in names }
 
     def print_info__(self):
         key_list = [
@@ -20,7 +21,7 @@ class confs:
     # TODO: str -> list to keys output
     def _recursion_view__(self, keys=''):
         if isinstance(self, confs):
-            for key in self.get_keys__():
+            for key in self.get_confs__():
                 for inner_key in confs._recursion_view__(
                         self.__getattribute__(key),
                         str(keys) + '  ' + str(key),
@@ -33,17 +34,21 @@ class confs:
 
 
 class solver_confs(confs):
-    solving = {
+    """
+    Parametrs from Base.Nonlinear_problem
+    """
+
+    solve_options = {
         'convergence': 'incremental',
         'tolerance': 1E-6,
     }
-    petsc = {
+    petsc_options = {
         'ksp_type': 'preonly',
         'pc_type': 'lu',
         'pc_factor_mat_solver_type': 'mumps'
     }
-    form = {}
-    jit = {}
+    form_compiler_options = {}
+    jit_options = {}
 
 
 class mesh_confs(confs):
@@ -71,8 +76,8 @@ class light_confs(confs):
 
 
 class initial(confs):
-    N = 0.2
-    P = 0.001
+    n = 0.2
+    p = 0.001
 
 
 class time(confs):
