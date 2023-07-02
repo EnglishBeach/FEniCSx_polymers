@@ -1,6 +1,6 @@
 import dolfinx as _dolfinx
 import ufl as _ufl
-from classes import Base as _Base
+import classes.fenics as _fn
 import numpy as _np
 import matplotlib.pyplot as _plt
 
@@ -36,7 +36,7 @@ def make_variables(
     variables = list(variables.strip().split(','))
     assert len(variables) == len(set(variables))
 
-    space = _Base.FunctionSpace(
+    space = _fn.FunctionSpace(
         mesh=domain,
         element=_ufl.MixedElement(
             *[variable_elements[var] for var in variables]),
@@ -55,13 +55,13 @@ def make_variables(
 
         step_info = {'version': version}
 
-        func = _Base.Function(space)
+        func = _fn.Function(space)
         step_info.update({'function': func})
 
         sun_func = [func.sub(variables.index(var)) for var in variables]
         step_info.update({'subfunctions': sun_func})
 
-        func_splitted = _Base.split(func)
+        func_splitted = _fn.split(func)
         func_variable = [
             func_splitted[variables.index(var)] for var in variables
         ]
@@ -72,8 +72,8 @@ def make_variables(
 
 
 def create_facets(domain):
-    _Base.set_connectivity(domain)
-    ds = _Base.Measure("ds", domain=domain)
+    _fn.set_connectivity(domain)
+    ds = _fn.Measure("ds", domain=domain)
     return ds
 
 

@@ -1,28 +1,11 @@
 """
 Base module for simple set up study and solving
 """
-import typing as _typing
-import shutil as _shutil
-import re as _re
 import numpy as _np
-
 import ufl as _ufl
-import dolfinx as _dolfinx
 from dolfinx import mesh as _mesh
 from dolfinx import fem as _fem
 from dolfinx import nls as _nls
-from ufl import FacetNormal, SpatialCoordinate, Measure
-from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions
-from ufl import conditional
-from ufl import variable
-from ufl import diff as D
-from ufl import nabla_div, nabla_grad, grad, div
-from ufl import as_matrix as matrix
-from ufl import lhs, rhs, split
-from ufl import exp, sym, tr, sqrt, ln, sin, cos
-from dolfinx.fem import FunctionSpace
-from matplotlib import pyplot as _plt
-
 
 # Operators
 class Infix:
@@ -46,7 +29,7 @@ inner = Infix(_ufl.inner)
 
 npor = Infix(_np.logical_or)
 npand = Infix(_np.logical_and)
-ufl_and = Infix(_ufl.And)
+And = Infix(_ufl.And)
 
 def vector(*args):
     return _ufl.as_vector(tuple(args))

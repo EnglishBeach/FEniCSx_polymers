@@ -1,4 +1,4 @@
-from classes import Base as _b
+from classes.fenics import Base as _b
 from dolfinx import fem as _fem
 import inspect as _inspect
 import typing as _typing

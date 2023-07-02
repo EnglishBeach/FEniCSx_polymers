@@ -1,10 +1,10 @@
-from classes import Base as _b
+import classes.fenics as _fn
 import ufl as _ufl
 
 
 class Simple1D:
 
-    def __init__(self, x: _b.SpatialCoordinate, x0, smoothing):
+    def __init__(self, x: _fn.SpatialCoordinate, x0, smoothing):
         self.x = x
         self.x0 = x0
         self.smoothing = smoothing
@@ -34,7 +34,7 @@ class Simple1D:
 
     @_style
     def stepwise(self):
-        return _b.conditional(
+        return _fn.conditional(
             self.x0 <= self.x,
             self._singP(),
             self._singM(),
@@ -43,18 +43,18 @@ class Simple1D:
     @_style
     def sigmoid(self):
         a = self.smoothing * 5
-        return 1 / (1 + _b.exp(-a * (self.x - self.x0)))
+        return 1 / (1 + _fn.exp(-a * (self.x - self.x0)))
 
     @_style
     def trapstep(self):
         a = self.smoothing
-        result = _b.conditional(
-            (self.x0 - 1 / abs(2 * a) <= self.x)|_b.ufl_and|
+        result = _fn.conditional(
+            (self.x0 - 1 / abs(2 * a) <= self.x)|_fn.And|
             (self.x < self.x0 + 1 / abs(2 * a)),
             a * (self.x - self.x0) + 0.5,
             0,
         )
-        result += _b.conditional(
+        result += _fn.conditional(
             self.x0 + 1 / (2*a) <= self.x,
             self._singP(),
             self._singM(),
@@ -64,21 +64,22 @@ class Simple1D:
     @_style
     def parab(self):
         a = self.smoothing * 5
-        result = _b.conditional(
-            (self.x0 - 1 / _b.sqrt(abs(2 * a)) <= self.x)|_b.ufl_and|
+        result = _fn.conditional(
+            (self.x0 - 1 / _fn.sqrt(abs(2 * a)) <= self.x)|_fn.And|
             (self.x < self.x0),
-            a * (self.x - self.x0 + 1 / _b.sqrt(abs(2 * a)))**2 + self._singM(),
+            a * (self.x - self.x0 + 1 / _fn.sqrt(abs(2 * a)))**2 +
+            self._singM(),
             0,
         )
-        result += _b.conditional(
-            (self.x0 <= self.x)|_b.ufl_and|
-            (self.x < self.x0 + 1 / _b.sqrt(abs(2 * a)), ),
-            -a * (self.x - self.x0 - 1 / _b.sqrt(abs(2 * a)))**2 +
+        result += _fn.conditional(
+            (self.x0 <= self.x)|_fn.And|
+            (self.x < self.x0 + 1 / _fn.sqrt(abs(2 * a)), ),
+            -a * (self.x - self.x0 - 1 / _fn.sqrt(abs(2 * a)))**2 +
             self._singP(),
             0,
         )
-        result += _b.conditional(
-            self.x0 + 1 / (_ufl.sign(a) * _b.sqrt(abs(2 * a))) <= self.x,
+        result += _fn.conditional(
+            self.x0 + 1 / (_ufl.sign(a) * _fn.sqrt(abs(2 * a))) <= self.x,
             self._singP(),
             self._singM())
         return result
