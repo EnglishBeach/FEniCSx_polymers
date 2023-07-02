@@ -10,11 +10,11 @@ class Simple1D:
         self.smoothing = smoothing
 
     def create(self, kind: str):
-        assert kind in Simple1D.style(get=True), 'Not implemented method'
+        assert kind in Simple1D.styles(get=True), 'Not implemented method'
         return getattr(self, kind)()
 
     @staticmethod
-    def style(func=None, get=False, l=set()):
+    def styles(func=None, get=False, l=set()):
         if not get:
             l.add(func.__name__)
             return func
@@ -27,7 +27,7 @@ class Simple1D:
     def _singM(self):
         return (1 - _ufl.sign(self.smoothing)) / 2
 
-    @style
+    @styles
     def step(self):
         return _b.conditional(
             self.x0 <= self.x,
@@ -35,12 +35,12 @@ class Simple1D:
             self._singM(),
         )
 
-    @style
+    @styles
     def sigmoid(self):
         a = self.smoothing * 5
         return 1 / (1 + _b.exp(-a * (self.x - self.x0)))
 
-    @style
+    @styles
     def trapstep(self):
         a = self.smoothing
         result = _b.conditional(
@@ -56,7 +56,7 @@ class Simple1D:
         )
         return result
 
-    @style
+    @styles
     def parab(self):
         a = self.smoothing * 5
         result = _b.conditional(
