@@ -1,9 +1,12 @@
 import dolfinx as _dolfinx
 import ufl as _ufl
 from classes import Base as _Base
+import numpy as _np
+import matplotlib.pyplot as _plt
 
 
-def make_variables(domain: _dolfinx.mesh.Mesh,
+def make_variables(
+    domain: _dolfinx.mesh.Mesh,
     variables: str,
     variable_elements: dict,
     n_variable_versions: int,
@@ -35,8 +38,8 @@ def make_variables(domain: _dolfinx.mesh.Mesh,
 
     space = _Base.FunctionSpace(
         mesh=domain,
-        element=_ufl.MixedElement(*[variable_elements[var]
-                                   for var in variables]),
+        element=_ufl.MixedElement(
+            *[variable_elements[var] for var in variables]),
     )
     subspace = [
         space.sub(variables.index(var)).collapse()[0] for var in variables
@@ -48,7 +51,7 @@ def make_variables(domain: _dolfinx.mesh.Mesh,
     }
 
     function_info = []
-    for version in range(n_variable_versions-1, -1, -1):
+    for version in range(n_variable_versions - 1, -1, -1):
 
         step_info = {'version': version}
 
@@ -67,7 +70,75 @@ def make_variables(domain: _dolfinx.mesh.Mesh,
         function_info.append(step_info)
     return space_info, function_info
 
+
 def create_facets(domain):
     _Base.set_connectivity(domain)
     ds = _Base.Measure("ds", domain=domain)
     return ds
+
+
+def func_plot1D(
+    funcs: list,
+    fig=None,
+    ax=None,
+    show_points=False,
+):
+    """Create plot from fem.Function
+    Args:
+        funcs (fem.Function, str): list of functions
+        show_points (bool): To show points on plot
+        fig (plt.Figure): Figure to go back it
+        ax (plt.axes): Axes to go back it
+    """
+    if (fig or ax) is None:
+        fig, ax = _plt.subplots(facecolor='White')
+        fig.set_size_inches(16, 8)
+    for func in funcs:
+        x = func.function_space.tabulate_dof_coordinates()[:, 0]
+        y = func.x.array
+        cord = _np.array([x, y])
+        cord = cord[:, _np.argsort(cord[0])]
+        ax.plot(cord[0], cord[1], label=func.name, linewidth=1)
+        if show_points: ax.scatter(cord[0], cord[1], s=0.5)
+    ax.legend(
+        bbox_to_anchor=(1.01, 0.5),
+        borderaxespad=0,
+        loc='center left',
+    )
+    return ax
+
+
+def func_plot2D(
+    func,
+    show_points=False,
+    smooth_show=True,
+    fig=None,
+    ax=None,
+):
+    """Create plot from fem.Function
+    Args:
+        func (fem.Function, str): Function
+        show_points (bool): To show real function mesh
+        smooth_show (bool): To show smoth plot instead real plot
+        fig (plt.Figure): Figure to go back it
+        ax (plt.axes): Axes to go back it
+    """
+    if (fig or ax) is None:
+        fig, ax = _plt.subplots(facecolor='White')
+        fig.set_size_inches(10, 10)
+
+    data = _np.column_stack((
+        func.function_space.tabulate_dof_coordinates()[:, 0:2],
+        func.x.array,
+    ))
+    data = data.transpose()
+
+    y = func.x.array
+    if smooth_show:
+        plot = ax.tripcolor(*data)
+    else:
+        levels = _np.linspace(func.x.array.min(), func.x.array.max(), 10)
+        plot = ax.tricontourf(*data, levels=levels)
+    if show_points: ax.plot(data[0], data[1], 'o', markersize=2, color='grey')
+    fig.colorbar(plot, ax=ax)
+    return ax

@@ -54,7 +54,7 @@ class solver_confs(confs):
 class mesh_confs(confs):
     left = 0
     right = 1
-    intervals = 1000
+    intervals = 100
     degree = 1
     family = 'CG'
 
