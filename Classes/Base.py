@@ -1,4 +1,6 @@
-# Base module
+"""
+Base module for simple set up study and solving
+"""
 import typing as _typing
 import shutil as _shutil
 import re as _re
@@ -44,7 +46,7 @@ inner = Infix(_ufl.inner)
 
 npor = Infix(_np.logical_or)
 npand = Infix(_np.logical_and)
-
+ufl_and = Infix(_ufl.And)
 
 def vector(*args):
     return _ufl.as_vector(tuple(args))
