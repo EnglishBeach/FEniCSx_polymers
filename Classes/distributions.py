@@ -9,9 +9,9 @@ class Simple1D:
         self.x0 = x0
         self.smoothing = smoothing
 
-    def create(self, kind: str):
-        assert kind in Simple1D._style(get=True), 'Not implemented method'
-        return getattr(self, kind)()
+    def create(self, style: str):
+        assert style in Simple1D._style(get=True), 'Not implemented method'
+        return getattr(self, style)()
 
     @staticmethod
     def _style(func=None, get=False, l=set()):
@@ -33,7 +33,7 @@ class Simple1D:
         return (1 - _ufl.sign(self.smoothing)) / 2
 
     @_style
-    def step(self):
+    def stepwise(self):
         return _b.conditional(
             self.x0 <= self.x,
             self._singP(),
@@ -82,16 +82,3 @@ class Simple1D:
             self._singP(),
             self._singM())
         return result
-
-class A:
-    g=1
-    @property
-    def f(self):
-        return 1
-    def foo(self):
-        return 1
-
-a= A()
-a.f
-a.foo
-a.g
