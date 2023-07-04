@@ -115,6 +115,12 @@ class ArrayFunc:
         self.len = len(self.cord[0])
         self.name = name
 
+    def __len__(self):
+        return len(self.cord[0])
+
+    def __repr__(self):
+        return str(self.cord.transpose())
+
     def _sort(self):
         self.cord = self.cord[:, _np.argsort(self.cord[0])]
 

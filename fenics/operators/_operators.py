@@ -20,15 +20,16 @@ from dolfinx import nls as _nls
 from dolfinx.fem import FunctionSpace
 from mpi4py import MPI
 
+
 # Operators
-class Infix:
+class _Infix:
     """Create infix function from default"""
 
     def __init__(self, function):
         self.function = function
 
     def __ror__(self, other):
-        return Infix(lambda x, self=self, other=other: self.function(other, x))
+        return _Infix(lambda x, self=self, other=other: self.function(other, x))
 
     def __or__(self, other):
         return self.function(other)
@@ -37,12 +38,9 @@ class Infix:
         return self.function(value1, value2)
 
 
-dot = Infix(_ufl.dot)
-inner = Infix(_ufl.inner)
-
-npor = Infix(_np.logical_or)
-npand = Infix(_np.logical_and)
-And = Infix(_ufl.And)
+dot = _Infix(_ufl.dot)
+inner = _Infix(_ufl.inner)
+And = _Infix(_ufl.And)
 
 
 def vector(*args):
@@ -118,32 +116,10 @@ def set_connectivity(domain):
     )
 
 
-# Classes
-class ArrayFunc:
-
-    def __init__(self, func: _fem.Function, name=None):
-        self.cord = _np.array([
-            func.function_space.tabulate_dof_coordinates()[:, 0],
-            func.x.array,
-        ])
-        self._sort()
-        self.cord = _np.array([[a, b]for a, b in enumerate(self.cord[1])]).transpose() #yapf: disable
-        self.len = len(self.cord[0])
-        self.name = name
-
-    def _sort(self):
-        self.cord = self.cord[:, _np.argsort(self.cord[0])]
-
-    def translate(self, point_0):
-        x_new = (self.cord[0] - point_0)
-        self.cord[0] = x_new - self.len * (x_new // (self.len))
-        self._sort()
-
-    def mirror(self, point_0):
-        self.translate(point_0)
-        self.cord[0] = -self.cord[0]
-        self.cord[0] += self.len
-        self._sort()
+def create_facets(domain):
+    set_connectivity(domain)
+    ds = Measure("ds", domain=domain)
+    return ds
 
 
 class Function:
@@ -240,29 +216,33 @@ class Function:
 
 
 class Constant:
-
-    def __new__(cls, domain_space, const):
-        """Constant on space
-
-        Args:
-            space (fem.FunctionSpace| domain): Space or domain
-            const (auny number): Any number
-
-        Returns:
-            fem.function.Constant: Constant on space
-        """
-        return _fem.Constant(domain_space, _fem.petsc.PETSc.ScalarType(const))
-
-
-class DirichletBC:
-    """
-    Create Dirichlet condition.
+    """Constant on space
 
     Args:
-        space (fem.FunctionSpace): Function space.
-        For several spaces:: first space is general.
-        form (any function): Function
-        combined_marker (Any): One from next::
+        space (fem.FunctionSpace| domain): Space or domain
+        const (auny number): Any number
+
+    Returns:
+        fem.function.Constant: Constant on space
+    """
+
+    def __new__(
+        cls,
+        domain_space,
+        const,
+        const_type=_fem.petsc.PETSc.ScalarType,
+    ):
+
+        return _fem.Constant(domain_space, const_type(const))
+
+class DirichletBC:
+    """Create Dirichlet condition.
+
+    Args:
+    \n space (fem.FunctionSpace): Function space.
+    For several spaces: first space is general.
+    \n form (any function): Function
+    \n combined_marker (Any): One from next:
         \nFunction - boundary marker function find geometrical
         \nAll - all boundary find entities
         \n(mesh.meshtags, marker) -Find entities marker of boundary from mesh tags
@@ -272,18 +252,6 @@ class DirichletBC:
     """
 
     def __new__(cls, space, form, combined_marker):
-
-        def set_dirichlet(dofs, form, space):
-            if hasattr(form, 'function_space'):
-                if form.function_space == space:
-                    bc = _fem.dirichletbc(dofs=dofs, value=form)
-                else:
-                    bc = _fem.dirichletbc(V=space, dofs=dofs, value=form)
-            else:
-                bc = _fem.dirichletbc(V=space, dofs=dofs, value=form)
-            return bc
-
-        # FIXME: Maybe listable?
         if isinstance(space, tuple or list): space0 = space[0]
         else: space0 = space
         domain = space0.mesh
@@ -308,8 +276,19 @@ class DirichletBC:
         else:
             dofs = _fem.locate_dofs_geometrical(space, combined_marker)
 
-        bc = set_dirichlet(dofs, form, space0)
+        bc = DirichletBC.set_dirichlet(dofs, form, space0)
 
+        return bc
+
+    @staticmethod
+    def set_dirichlet(dofs, form, space):
+        if hasattr(form, 'function_space'):
+            if form.function_space == space:
+                bc = _fem.dirichletbc(dofs=dofs, value=form)
+            else:
+                bc = _fem.dirichletbc(V=space, dofs=dofs, value=form)
+        else:
+            bc = _fem.dirichletbc(V=space, dofs=dofs, value=form)
         return bc
 
 
@@ -320,25 +299,25 @@ from dolfinx.fem.petsc import LinearProblem
 class NonlinearProblem:
     """Create nonlinear problem
 
-        Args:
-            F (ufl.Form): Nonlinear equation form
-            bcs (Dirichlet): Dirichlet conditious.
-            u (fem.Function): Function to be solved.
-            \nJ (ufl.Form): Jacobian matrix. Defaults None.
-            \npetsc_options (dict): Options to petsc. Defaults to {
-            'ksp_type': 'preonly',
-            'pc_type': 'lu',
-            'pc_factor_mat_solver_type': 'mumps',
-            }.
-            \nsolve_options (dict): Options to NEwton solwer.
-            Defaults to {'convergence': 'incremental', 'tolerance': 1E-6}.
-            \nghost_opions (dict):  You cant change it
-            {'addv': INSERT,'mode': FORWARD}
-            \nform_compiler_params (dict): Form compiler options.
-            Defaults to {}.
-            \njit_params (dict): JIT parmetrs.
-            Defaults to {}.
-        """
+    Args:
+        \n F (ufl.Form): Nonlinear equation form
+        \n bcs (Dirichlet): Dirichlet conditious.
+        \n u (fem.Function): Function to be solved.
+        \n J (ufl.Form): Jacobian matrix. Defaults None.
+        \n petsc_options (dict): Options to petsc. Defaults to {
+        'ksp_type': 'preonly',
+        'pc_type': 'lu',
+        'pc_factor_mat_solver_type': 'mumps',
+        }.
+        \n solve_options (dict): Options to NEwton solwer.
+        Defaults to {'convergence': 'incremental', 'tolerance': 1E-6}.
+        \n ghost_opions (dict):  You cant change it
+        {'addv': INSERT,'mode': FORWARD}
+        \n form_compiler_params (dict): Form compiler options.
+        Defaults to {}.
+        \n jit_params (dict): JIT parmetrs.
+        Defaults to {}.
+    """
 
     # TODO: Make succession
     def __init__(
@@ -358,19 +337,6 @@ class NonlinearProblem:
         form_compiler_options={},
         jit_options={},
     ):
-
-        def set_options(self, petsc_options, solve_options):
-            self._solver.convergence_criterion = solve_options['convergence']
-            self._solver.rtol = solve_options['tolerance']
-
-            ksp = self._solver.krylov_solver
-            problem_prefix = ksp.getOptionsPrefix()
-            opts = _fem.petsc.PETSc.Options()
-            opts.prefixPush(problem_prefix)
-            for k, v in petsc_options.items():
-                opts[k] = v
-            ksp.setFromOptions()
-
         self._u = u
         self.bcs = bcs
 
@@ -390,9 +356,22 @@ class NonlinearProblem:
             self._u.function_space.mesh.comm,
             pr,
         )
-        set_options(self,
-                    petsc_options=petsc_options,
-                    solve_options=solve_options)
+        self.set_options(
+            petsc_options=petsc_options,
+            solve_options=solve_options,
+        )
+
+    def set_options(self, petsc_options, solve_options):
+        self._solver.convergence_criterion = solve_options['convergence']
+        self._solver.rtol = solve_options['tolerance']
+
+        ksp = self._solver.krylov_solver
+        problem_prefix = ksp.getOptionsPrefix()
+        opts = _fem.petsc.PETSc.Options()
+        opts.prefixPush(problem_prefix)
+        for k, v in petsc_options.items():
+            opts[k] = v
+        ksp.setFromOptions()
 
     def solve(self):
         """Solve function
@@ -427,167 +406,3 @@ class NonlinearProblem:
     def a(self) -> _fem.FormMetaClass:
         """The compiled bilinear form"""
         return self._a
-
-    # FIXME
-
-
-# class LinearProblem:
-#     """Create linear  problem
-
-#         Args:
-#             a (ufl.Form): bilinear form
-#             L (ufl.Form): linear form
-#             bcs (Dirichlet): Dirichlet conditious.
-#             u (fem.Function): Function to be solved.
-#             \npetsc_options (dict): Options to petsc.
-#             Defaults to { 'ksp_type': 'preonly', 'pc_type': 'lu' }.
-#             \nassemble_options (dict): Options to assemble bilinear and linear forms.
-#             Defaults to {'assebmle_A': True, 'assemble_B': True}.
-#             \nghost_opions (dict): GhostUpdate potions.
-#             Defaults to  {'addv': ADD,'mode': REVERSE}.
-#             \nform_compiler_params (dict): Form compiler options.
-#             Defaults to {}.
-#             \njit_params (dict): JIT parmetrs.
-#             Defaults to {}.
-#         """
-
-#     def __init__(
-#         self,
-#         a: _ufl.Form,
-#         L: _ufl.Form,
-#         bcs: list,
-#         u: _fem.Function,
-#         petsc_options={
-#             'ksp_type': 'preonly', 'pc_type': 'lu'
-#         },
-#         assemble_options={
-#             'assemble_A': True, 'assemble_b': True
-#         },
-#         ghost_opions={},
-#         form_compiler_params={},
-#         jit_params={},
-#     ):
-#         # FIXME: Maybe need setiings options to forms or not?
-#         def set_options(self, petsc_options):
-#             ksp = self._solver
-#             problem_prefix = f'dolfinx_solve_{id(self)}'
-#             ksp.setOptionsPrefix(problem_prefix)
-#             opts = _fem.petsc.PETSc.Options()
-#             opts.prefixPush(problem_prefix)
-#             for k, v in petsc_options.items():
-#                 opts[k] = v
-#             opts.prefixPop()
-#             ksp.setFromOptions()
-#             # self._A.setOptionsPrefix(problem_prefix)
-#             # self._A.setFromOptions()
-#             # self._b.setOptionsPrefix(problem_prefix)
-#             # self._b.setFromOptions()
-
-#         self._u = u
-#         self.bcs = bcs
-
-#         # A form
-#         self._a = _fem.form(
-#             a,
-#             form_compiler_params=form_compiler_params,
-#             jit_params=jit_params,
-#         )
-#         self._A = _fem.petsc.create_matrix(self._a)
-
-#         # b form
-#         self._L = _fem.form(
-#             L,
-#             form_compiler_params=form_compiler_params,
-#             jit_params=jit_params,
-#         )
-#         self._b = _fem.petsc.create_vector(self._L)
-
-#         # Creating solver
-#         self._solver = _fem.petsc.PETSc.KSP().create(
-#             self._u.function_space.mesh.comm
-#         )
-#         self._solver.setOperators(self._A)
-#         set_options(self, petsc_options)
-
-#         # Another options
-#         self._ghost_opions = {
-#             'addv': _fem.petsc.PETSc.InsertMode.ADD,
-#             'mode': _fem.petsc.PETSc.ScatterMode.REVERSE,
-#         }
-#         self._ghost_opions.update(ghost_opions)
-
-#         # Assembling
-#         self.assemble_options = assemble_options
-#         if self.assemble_options['assemble_A']: self._assemble_A()
-#         if self.assemble_options['assemble_b']: self._assemble_b()
-
-#     def _assemble_A(self):
-#         """Assemle bilinear form"""
-#         self._A.zeroEntries()
-#         _fem.petsc._assemble_matrix_mat(self._A, self._a, bcs=self.bcs)
-#         self._A.assemble()
-
-#     def _assemble_b(self):
-#         """Assemble linear form"""
-#         with self._b.localForm() as b_loc:
-#             b_loc.set(0)
-#         _fem.petsc.assemble_vector(self._b, self._L)
-#         _fem.petsc.apply_lifting(self._b, [self._a], bcs=[self.bcs])
-#         self._b.ghostUpdate(
-#             addv=self._ghost_opions['addv'],
-#             mode=self._ghost_opions['mode'],
-#         )
-#         _fem.petsc.set_bc(self._b, self.bcs)
-
-#     def solve(self):
-#         """Solve function
-
-#         Returns:
-#             fem.Function: Solved function
-#         """
-#         if not self.assemble_options['assemble_A']: self._assemble_A()
-#         if not self.assemble_options['assemble_b']: self._assemble_b()
-
-#         result = self._solver.solve(self._b, self._u.vector)
-#         self._u.x.scatter_forward()
-#         return result
-
-#     @staticmethod
-#     def KSP_types():
-#         """Get KSP types"""
-#         return _fem.petsc.PETSc.KSP.Type
-
-#     @staticmethod
-#     def PC_types():
-#         """Get PC types"""
-#         return _fem.petsc.PETSc.PC.Type
-
-#     @staticmethod
-#     def ghost_updates():
-#         """Get ghost_update types"""
-#         return (_fem.petsc.PETSc.InsertMode, _fem.petsc.PETSc.ScatterMode)
-
-#     @property
-#     def L(self) -> _fem.FormMetaClass:
-#         """The compiled linear form"""
-#         return self._L
-
-#     @property
-#     def a(self) -> _fem.FormMetaClass:
-#         """The compiled bilinear form"""
-#         return self._a
-
-#     @property
-#     def A(self) -> _fem.petsc.PETSc.Mat:
-#         """Matrix operator"""
-#         return self._A
-
-#     @property
-#     def b(self) -> _fem.petsc.PETSc.Vec:
-#         """Right-hand side vector"""
-#         return self._b
-
-#     @property
-#     def solver(self) -> _fem.petsc.PETSc.KSP:
-#         """Linear solver object"""
-#         return self._solver
