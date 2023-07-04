@@ -5,7 +5,9 @@ import dolfinx as _dolfinx
 import ufl as _ufl
 from .. import operators as _fn
 from dolfinx import fem as _fem
-from matplotlib.ticker import  FormatStrFormatter as _FormatStrFormatter
+from matplotlib.ticker import FormatStrFormatter as _FormatStrFormatter
+import re as _re
+
 
 
 def make_variables(
@@ -44,12 +46,12 @@ def make_variables(
         element=_ufl.MixedElement(
             *[variable_elements[var] for var in variables]),
     )
-    subspace = [
+    subspaces = [
         space.sub(variables.index(var)).collapse()[0] for var in variables
     ]
     space_info = {
         'space': space,
-        'subspaces': subspace,
+        'subspaces': subspaces,
         'coordinates': (list(_ufl.SpatialCoordinate(space)) + [None] * 2)[:3],
     }
 
@@ -59,19 +61,77 @@ def make_variables(
         step_info = {'version': version}
 
         func = _fn.Function(space)
+        func.name = 'Function_' + str(version)
         step_info.update({'function': func})
 
-        sun_func = [func.sub(variables.index(var)) for var in variables]
-        step_info.update({'subfunctions': sun_func})
+        sub_funcs = [func.sub(variables.index(var)) for var in variables]
+        for sub_func, var in zip(sub_funcs, variables):
+            sub_func.name = var + str(version)
+        step_info.update({'subfunctions': sub_funcs})
 
         func_splitted = _fn.split(func)
-        func_variable = [
+        func_variables = [
             func_splitted[variables.index(var)] for var in variables
         ]
-        step_info.update({'variables': func_variable})
+        step_info.update({'variables': func_variables})
 
         function_info.append(step_info)
     return space_info, function_info
+
+
+def get_view(func, variables):
+    variables = list(variables.strip().split(','))
+    string = str(func)
+    replacement = {
+        r'\({ A \| A_{.*?} = (.+?)}\)': r'\n\1',
+        r'(d[sx])\(.*?\)(?:\\n)?': r'\1',
+        r'Function_([\d+])\[(\d+)\]': r'var{\2_\1}',
+        r'\+ ?-(\d+)': r'-\1',
+        r'\* ?1 |(?<=[\D])1 ?\* ?': '',
+        r'\( ?grad ?\((.*?)\) ?\)': r'grad(\1)',
+        r'v_\d+\[(\d+)\]': r'testvar{\1}',
+        r'\[i_.*?\]': '',
+        r' +': ' ',
+    }
+    for key in replacement:
+        string = _re.sub(
+            string=string,
+            pattern=key,
+            repl=replacement[key],
+        )
+
+    vars_indexes = range(len(variables))
+
+    for i in vars_indexes:
+
+        string = _re.sub(
+            string=string,
+            pattern=r'var{' + str(i) + r'_(\d+)}',
+            repl=str(variables[i]) + r'\1',
+        )
+        string = _re.sub(
+            string=string,
+            pattern=r'testvar{{' + str(i) + r'}',
+            repl='test_' + variables[i],
+        )
+    return string
+
+class Saver:
+
+    def __init__(self, data: str):
+        self.saved = {'Data': data}
+
+    def __call__(self, to_save: dict):
+        self.saved.update({key: str(to_save[key]) for key in to_save})
+
+    @property
+    def data(self, ):
+        return '\n'.join([
+            f'{title:-^100}' + '\n' + self.saved[title] for title in self.saved
+        ])
+
+    def print_full(self):
+        print(self.data)
 
 
 def func_plot1D(
@@ -103,14 +163,6 @@ def func_plot1D(
         loc='center left',
     )
     return ax
-
-
-import numpy as _np
-import matplotlib.pyplot as _plt
-import dolfinx as _dolfinx
-import ufl as _ufl
-from dolfinx import fem as _fem
-from matplotlib.ticker import FormatStrFormatter as _FormatStrFormatter
 
 
 class ArrayFunc:
@@ -202,8 +254,8 @@ class ArrayFunc:
 
         dif.mirror(cord_middle)
         dif.translate(-cord_middle)
-        aver_y = max(self.y)-min(self.y)
-        dif.y[:] = (dif.y - self.y) / aver_y*100
+        aver_y = max(self.y) - min(self.y)
+        dif.y[:] = (dif.y - self.y) / aver_y * 100
         dif.y[dif.cord >= cord_middle] = 0
         dif._array_plots(cord_middle)
         self._array_plots(cord_middle)
