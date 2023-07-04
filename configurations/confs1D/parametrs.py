@@ -8,22 +8,27 @@ import jsonpickle as _jp
 
 class confs:
 
-    def Get_confs(self):
+    def _get_attributes__(self):
         names = list(filter(lambda x: ('__' not in x) and x[0].islower(), self.__dir__()))
         return {name: self.__getattribute__(name) for name in names}
 
     @property
     def Info(self):
-        key_list = [
-            f'{compound_key}: {value}' for value,
+        return {
+            compound_key.strip(): value for value,
             compound_key in self._recursion_view__()
+        }
+
+    def Get_confs(self):
+        key_list = [
+            f'{compound_key}: {value}' for
+            compound_key,value in self.Info.items()
         ]
         return '\n'.join(key_list)
 
-    # TODO: str -> list to keys output
     def _recursion_view__(self, keys=''):
         if isinstance(self, confs):
-            for key in self.Get_confs():
+            for key in self._get_attributes__():
                 for inner_key in confs._recursion_view__(
                         self.__getattribute__(key),
                         str(keys) + '  ' + str(key),
