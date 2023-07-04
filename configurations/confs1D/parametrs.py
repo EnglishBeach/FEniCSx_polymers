@@ -2,15 +2,15 @@
 Standart parametrs for study.
 """
 
-import numpy as np
-import jsonpickle as jp
+import numpy as _np
+import jsonpickle as _jp
 
 
 class confs:
 
     def get_confs__(self):
         names = list(filter(lambda x: '__' not in x, self.__dir__()))
-        return {name: self.__getattribute__(name) for name in names }
+        return {name: self.__getattribute__(name) for name in names}
 
     def print_info__(self):
         key_list = [
@@ -18,6 +18,7 @@ class confs:
             compound_key in self._recursion_view__()
         ]
         print('\n'.join(key_list))
+
     # TODO: str -> list to keys output
     def _recursion_view__(self, keys=''):
         if isinstance(self, confs):
@@ -27,8 +28,10 @@ class confs:
                         str(keys) + '  ' + str(key),
                 ):
                     yield inner_key
-        elif isinstance(self, np.ndarray|range):
-            yield (f'[{self[0]}, {self[1]} .. {self[-2]}, {self[-1]}]; len = {len(self)}', keys)
+        elif isinstance(self, _np.ndarray|range):
+            yield (
+                f'[{self[0]}, {self[1]} .. {self[-2]}, {self[-1]}]; len = {len(self)}',
+                keys)
         else:
             yield (self, keys)
 
@@ -81,7 +84,7 @@ class initial(confs):
 
 
 class time(confs):
-    line = np.linspace(0, 1, 101)
+    line = _np.linspace(0, 1, 101)
     check = line[::10]
 
 

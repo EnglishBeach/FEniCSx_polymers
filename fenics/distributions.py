@@ -1,9 +1,11 @@
-import .operators as _fn
+from . import operators as _fn
 import ufl as _ufl
 
 
 class Simple1D:
-
+    """
+    Container class for different function distributions in 1D
+    """
     def __init__(self, x: _fn.SpatialCoordinate, x0, smoothing):
         self.x = x
         self.x0 = x0

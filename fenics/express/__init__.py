@@ -1,1 +1,5 @@
-from ._functions import *
+"""
+Fast and simple solves for different situations: make plots, take info ...
+"""
+
+from ._express import *

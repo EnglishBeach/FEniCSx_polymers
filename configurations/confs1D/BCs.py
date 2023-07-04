@@ -1,7 +1,7 @@
-from classes.fenics import Base as _b
-from dolfinx import fem as _fem
 import inspect as _inspect
 import typing as _typing
+from dolfinx import fem as _fem
+from fenics import operators as _fn
 
 
 class BCs1D:

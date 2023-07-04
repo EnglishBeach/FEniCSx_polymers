@@ -3,8 +3,7 @@ import matplotlib.pyplot as _plt
 import dolfinx as _dolfinx
 import ufl as _ufl
 from .. import operators as _fn
-
-
+from dolfinx import fem as _fem
 
 
 def make_variables(
@@ -73,12 +72,6 @@ def make_variables(
     return space_info, function_info
 
 
-def create_facets(domain):
-    _fn.set_connectivity(domain)
-    ds = _fn.Measure("ds", domain=domain)
-    return ds
-
-
 def func_plot1D(
     funcs: list,
     fig=None,
@@ -108,6 +101,33 @@ def func_plot1D(
         loc='center left',
     )
     return ax
+
+
+class ArrayFunc:
+
+    def __init__(self, func: _fem.Function, name=None):
+        self.cord = _np.array([
+            func.function_space.tabulate_dof_coordinates()[:, 0],
+            func.x.array,
+        ])
+        self._sort()
+        self.cord = _np.array([[a, b]for a, b in enumerate(self.cord[1])]).transpose() #yapf: disable
+        self.len = len(self.cord[0])
+        self.name = name
+
+    def _sort(self):
+        self.cord = self.cord[:, _np.argsort(self.cord[0])]
+
+    def translate(self, point_0):
+        x_new = (self.cord[0] - point_0)
+        self.cord[0] = x_new - self.len * (x_new // (self.len))
+        self._sort()
+
+    def mirror(self, point_0):
+        self.translate(point_0)
+        self.cord[0] = -self.cord[0]
+        self.cord[0] += self.len
+        self._sort()
 
 
 def func_plot2D(
