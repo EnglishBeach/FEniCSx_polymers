@@ -1,9 +1,11 @@
 import numpy as _np
+import copy as _copy
 import matplotlib.pyplot as _plt
 import dolfinx as _dolfinx
 import ufl as _ufl
 from .. import operators as _fn
 from dolfinx import fem as _fem
+from matplotlib.ticker import  FormatStrFormatter as _FormatStrFormatter
 
 
 def make_variables(
@@ -103,37 +105,108 @@ def func_plot1D(
     return ax
 
 
+import numpy as _np
+import matplotlib.pyplot as _plt
+import dolfinx as _dolfinx
+import ufl as _ufl
+from dolfinx import fem as _fem
+from matplotlib.ticker import FormatStrFormatter as _FormatStrFormatter
+
+
 class ArrayFunc:
 
     def __init__(self, func: _fem.Function, name=None):
-        self.cord = _np.array([
-            func.function_space.tabulate_dof_coordinates()[:, 0],
+        self._fem = func
+        x_line = func.function_space.tabulate_dof_coordinates()[:, 0]
+        self._data = _np.array([
+            x_line * 0,
+            x_line,
             func.x.array,
-        ])
-        self._sort()
-        self.cord = _np.array([[a, b]for a, b in enumerate(self.cord[1])]).transpose() #yapf: disable
-        self.len = len(self.cord[0])
-        self.name = name
+        ]).T
+        self.sort(1)
+        self._data[:, 0] = range(len(x_line))
+
+        self.cord,self.x,self.y = self._data[:,0],self._data[:,1],self._data[:,2]
+        self.name = func.name
+        if name != None: self.name = name
 
     def __len__(self):
-        return len(self.cord[0])
+        return len(self.x)
 
     def __repr__(self):
-        return str(self.cord.transpose())
+        string = f"""ArrayFunc len = {len(self)} :\nNum     X             Y\n"""
+        point_str = '\n'.join([
+            f'{int(point[0]):<5}  {point[1]:>5e}  {point[2]:<5e}'
+            for point in self._data
+        ])
 
-    def _sort(self):
-        self.cord = self.cord[:, _np.argsort(self.cord[0])]
+        return string + point_str
+
+    def sort(self, pos=0):
+        self._data[:] = self._data[_np.argsort(self._data[:, pos])]
 
     def translate(self, point_0):
-        x_new = (self.cord[0] - point_0)
-        self.cord[0] = x_new - self.len * (x_new // (self.len))
-        self._sort()
+        cord_new = (self.cord - point_0)
+        self.cord[:] = cord_new - len(self) * (cord_new // (len(self)))
+        self.sort()
 
     def mirror(self, point_0):
         self.translate(point_0)
-        self.cord[0] = -self.cord[0]
-        self.cord[0] += self.len
-        self._sort()
+        self.cord[:] = -self.cord
+        self.cord[:] += len(self)
+        self.sort()
+
+    def _find_middle_cord(self, x_middle, add_point):
+        middle_cord = int(
+            (min(self.x) + x_middle) / (max(self.x) - min(self.x)) * len(self))
+        middle_cord += add_point
+        return middle_cord
+
+    def _array_plots(self, cord_middle):
+        fig, ax = _plt.subplots(facecolor='White')
+        fig.set_size_inches(20, 10)
+        ax.grid(True, which='Both')
+        ax.set_xlim((min(self.cord), max(self.cord)))
+        ax.set_ylim((min(self.y), max(self.y)))
+        ax.yaxis.set_major_formatter(_FormatStrFormatter(('%.3f')))
+        _plt.plot(
+            [cord_middle, cord_middle],
+            (min(self.y), max(self.y)),
+            c='red',
+        )
+
+        ax.plot(self.cord, self.y, label=self.name, color='black')
+        ax.fill_between(
+            self.cord,
+            self.y * 0,
+            self.y,
+            where=self.y > self.y * 0,
+            alpha=0.5,
+            facecolor='green',
+            label=self.name,
+        )
+        ax.fill_between(
+            self.cord,
+            self.y * 0,
+            self.y,
+            where=self.y < self.y * 0,
+            alpha=0.5,
+            facecolor='red',
+            label=self.name,
+        )
+
+    def check_symmetry(self, x_middle, point_add=0):
+        print('Rule: Right - left')
+        dif = ArrayFunc(func=self._fem, name=self.name)
+        cord_middle = self._find_middle_cord(x_middle, point_add)
+
+        dif.mirror(cord_middle)
+        dif.translate(-cord_middle)
+        aver_y = max(self.y)-min(self.y)
+        dif.y[:] = (dif.y - self.y) / aver_y*100
+        dif.y[dif.cord >= cord_middle] = 0
+        dif._array_plots(cord_middle)
+        self._array_plots(cord_middle)
 
 
 def func_plot2D(
