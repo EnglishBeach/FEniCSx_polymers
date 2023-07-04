@@ -34,6 +34,13 @@ class confs:
                         str(keys) + '  ' + str(key),
                 ):
                     yield inner_key
+        elif isinstance(self, dict):
+            for key in self:
+                for inner_key in confs._recursion_view__(
+                        self[key],
+                        str(keys) + '  ' + str(key),
+                ):
+                    yield inner_key
         elif isinstance(self, _np.ndarray|range):
             yield (
                 f'[{self[0]}, {self[1]} .. {self[-2]}, {self[-1]}]; len = {len(self)}',
