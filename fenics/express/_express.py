@@ -1,13 +1,17 @@
-import numpy as _np
-import copy as _copy
-import matplotlib.pyplot as _plt
-import dolfinx as _dolfinx
-import ufl as _ufl
-from .. import operators as _fn
-from dolfinx import fem as _fem
-from matplotlib.ticker import FormatStrFormatter as _FormatStrFormatter
 import re as _re
+import numpy as _np
+import shutil as _shutil
+import os as _os
+from tqdm import tqdm as _tqdm
 
+from matplotlib.ticker import FormatStrFormatter as _FormatStrFormatter
+import matplotlib.pyplot as _plt
+import ufl as _ufl
+import dolfinx as _dolfinx
+from dolfinx import io as _io
+from dolfinx import fem as _fem
+
+from .. import operators as _fn
 
 
 def make_variables(
@@ -116,6 +120,7 @@ def get_view(func, variables):
         )
     return string
 
+
 class Saver:
 
     def __init__(self, data: str):
@@ -132,6 +137,57 @@ class Saver:
 
     def print_full(self):
         print(self.data)
+
+
+def SolveTimeDependent_1D(
+    problem: _fn.NonlinearProblem,
+    time_line,
+    change_func,
+    save_func,
+    DATA,
+    domain,
+    save=False,
+    saver: Saver = None,
+    time_check=None,
+):
+    time_steps = _tqdm(
+        desc=f'Solving PDE. Time:{0:.3f}',
+        iterable=time_line,
+    )
+    if not save:
+        for step in time_steps:
+            time_steps.set_description(f'Solving PDE. Time:{step:.2f}')
+            problem.solve()
+            change_func()
+    else:
+        sol_name = DATA.save_confs.dir + DATA.save_confs.solution_name
+        try:
+            _shutil.rmtree(sol_name)
+        except:
+            pass
+        if not _os.path.isdir(sol_name): _os.mkdir(sol_name)
+        save_path = sol_name + '/' + DATA.save_confs.file_name
+
+        assert saver is not None
+        with open(sol_name + '/annotation.txt', 'w+') as file:
+            file.write(saver.data)
+
+        with _io.XDMFFile(domain.comm, save_path + '.xdmf', 'w') as file:
+
+            file.write_mesh(domain)
+
+            for step in time_steps:
+                if step in DATA.time.check:
+                    time_steps.set_description(f'Solving PDE. Time:{step:.2f}')
+                    save_func(file, step)
+
+                problem.solve()
+                change_func()
+
+        with open(sol_name + '/annotation.txt', 'a') as file:
+            elapsed = time_steps.format_dict['elapsed']
+            total_time = time_steps.format_interval(elapsed)
+            file.write('\n'*2 + f'STATUS: SOLVED \nTOTAL TIME: {total_time}')
 
 
 def func_plot1D(
