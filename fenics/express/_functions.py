@@ -1,8 +1,10 @@
-import dolfinx as _dolfinx
-import ufl as _ufl
-import classes.fenics as _fn
 import numpy as _np
 import matplotlib.pyplot as _plt
+import dolfinx as _dolfinx
+import ufl as _ufl
+from .. import operators as _fn
+
+
 
 
 def make_variables(

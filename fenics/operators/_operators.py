@@ -2,10 +2,23 @@
 Base module for simple set up study and solving
 """
 import numpy as _np
+
 import ufl as _ufl
-from dolfinx import mesh as _mesh
+from ufl import FacetNormal, Measure, SpatialCoordinate
+from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions
+from ufl import conditional
+from ufl import variable
+from ufl import diff as D
+from ufl import split, nabla_div, nabla_grad, grad, div
+from ufl import as_matrix as matrix
+from ufl import exp, sym, tr, sqrt, ln, sin, cos
+from ufl import dx
+
+from dolfinx import mesh
 from dolfinx import fem as _fem
 from dolfinx import nls as _nls
+from dolfinx.fem import FunctionSpace
+from mpi4py import MPI
 
 # Operators
 class Infix:
@@ -30,6 +43,7 @@ inner = Infix(_ufl.inner)
 npor = Infix(_np.logical_or)
 npand = Infix(_np.logical_and)
 And = Infix(_ufl.And)
+
 
 def vector(*args):
     return _ufl.as_vector(tuple(args))
@@ -72,7 +86,7 @@ def create_FacetTags_boundary(domain, bound_markers):
     """
     facet_indices, facet_markers = [], []
     for (marker, condition) in bound_markers:
-        facets = _mesh.locate_entities_boundary(
+        facets = mesh.locate_entities_boundary(
             domain,
             domain.topology.dim - 1,
             condition,
@@ -82,7 +96,7 @@ def create_FacetTags_boundary(domain, bound_markers):
     facet_indices = _np.hstack(facet_indices).astype(_np.int32)
     facet_markers = _np.hstack(facet_markers).astype(_np.int32)
     sorted_facets = _np.argsort(facet_indices)
-    facet_tags = _mesh.meshtags(
+    facet_tags = mesh.meshtags(
         domain,
         domain.topology.dim - 1,
         facet_indices[sorted_facets],
@@ -208,9 +222,8 @@ class Function:
         else:
             form2 = vector(*form)
             form2 += vector(*map(lambda x, y: x - y, cords, cords))
-        expression = _fem.Expression(
-            form2, space.element.interpolation_points()
-        )
+        expression = _fem.Expression(form2,
+                                     space.element.interpolation_points())
         return expression
 
     @staticmethod
@@ -276,7 +289,7 @@ class DirichletBC:
         domain = space0.mesh
 
         if combined_marker == 'All':
-            facets = _mesh.exterior_facet_indices(domain.topology)
+            facets = mesh.exterior_facet_indices(domain.topology)
             dofs = _fem.locate_dofs_topological(
                 space,
                 domain.topology.dim - 1,
@@ -377,9 +390,9 @@ class NonlinearProblem:
             self._u.function_space.mesh.comm,
             pr,
         )
-        set_options(
-            self, petsc_options=petsc_options, solve_options=solve_options
-        )
+        set_options(self,
+                    petsc_options=petsc_options,
+                    solve_options=solve_options)
 
     def solve(self):
         """Solve function
@@ -415,11 +428,9 @@ class NonlinearProblem:
         """The compiled bilinear form"""
         return self._a
 
-
-
-
-
     # FIXME
+
+
 # class LinearProblem:
 #     """Create linear  problem
 

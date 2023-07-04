@@ -1,4 +1,4 @@
-import classes.fenics as _fn
+import .operators as _fn
 import ufl as _ufl
 
 
