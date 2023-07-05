@@ -1,4 +1,4 @@
-# FEniCSx_polymers
+# FEniCSx for polymers
 This is simple common usage API for FEniCSx - finite element analysis framework for python. There is example of complex physical study of photopolymerization here. See for another information:
 https://github.com/EnglishBeach/COMSOL_polymers. This study about physical aspects of diffusion processes in solution. I use time-depended solver and solve it on 1D interval. 
 
