@@ -1,9 +1,6 @@
 import re as _re
 import numpy as _np
-import shutil as _shutil
-import os as _os
-from tqdm import tqdm as _tqdm
-import jsonpickle as _jp
+
 
 from matplotlib.ticker import FormatStrFormatter as _FormatStrFormatter
 import matplotlib.pyplot as _plt
@@ -120,81 +117,6 @@ def get_view(func, variables):
             repl='test_' + variables[i],
         )
     return string
-
-
-class Saver:
-
-    def __init__(self, to_save: dict):
-        self.data = {}
-        self.data.update(to_save)
-
-    def __call__(self, to_save: dict):
-        self.data.update({key: str(to_save[key]) for key in to_save})
-
-    @property
-    def text(self, ):
-        return '\n'.join([
-            f'{title:-^100}' + '\n' + self.data[title] for title in self.data
-        ])
-
-    def print_full(self):
-        print(self.text)
-
-
-
-
-
-def SolveTimeDependent_1D(
-    problem: _fn.NonlinearProblem,
-    time_line,
-    change_func,
-    save_func,
-    domain,
-    time_check=None,
-    save=False,
-    saver: Saver = None,
-    sol_name=None,
-    file_name=None,
-):
-    time_steps = _tqdm(
-        desc=f'Solving PDE. Time:{0:.3f}',
-        iterable=time_line,
-    )
-    if not save:
-        for step in time_steps:
-            time_steps.set_description(f'Solving PDE. Time:{step:.2f}')
-            problem.solve()
-            change_func()
-    else:
-        assert saver is not None
-        try:
-            _shutil.rmtree(sol_name)
-        except:
-            pass
-        if not _os.path.isdir(sol_name): _os.mkdir(sol_name)
-        save_path = sol_name + '/' + file_name
-
-
-
-
-        with _io.XDMFFile(domain.comm, save_path + '.xdmf', 'w') as file:
-
-            file.write_mesh(domain)
-
-            for step in time_steps:
-                if step in time_check:
-                    time_steps.set_description(f'Solving PDE. Time:{step:.2f}')
-                    save_func(file, step)
-
-                problem.solve()
-                change_func()
-
-        elapsed = time_steps.format_dict['elapsed']
-        total_time = time_steps.format_interval(elapsed)
-        saver({'Solve status': f'SOLVED \nTOTAL TIME: {total_time}'})
-        with open(sol_name + '/annotation.txt', 'w+') as file:
-            file.write(saver.text)
-
 
 
 def func_plot1D(
@@ -358,3 +280,64 @@ def func_plot2D(
     if show_points: ax.plot(data[0], data[1], 'o', markersize=2, color='grey')
     fig.colorbar(plot, ax=ax)
     return ax
+
+
+class Parametr_container:
+
+    def __repr__(self):
+        key_list = []
+        for composite_key, value in self.Options.items():
+            add_str = f'\n   -- {composite_key}: \n'
+
+            if not isinstance(value, _np.ndarray|range):
+                value_str = f'{value}'
+            else:
+                value_str = f'[{value[0]}, {value[1]} .. {value[-2]}, {value[-1]}]; len = {len(value)}'
+
+            key_list.append(add_str + value_str)
+        return str('\n'.join(key_list))
+
+    @property
+    def Options(self):
+        return {
+            compound_key.strip(): value
+            for value,
+            compound_key in self._recursion_view()
+        }
+
+    def __call__(self, *args, **kwds):
+        self._add_option(*args, **kwds)
+
+    def _add_option(self, add_options: dict):
+        for key, value in add_options.items():
+            self.__setattr__(key, value)
+
+    def _all_options(self):
+        options = list(
+            filter(lambda x: (x[0] != '_') and x[0].islower(), self.__dir__()))
+        return {option: self.__getattribute__(option) for option in options}
+
+    def _recursion_view(self, composite_key=''):
+        if isinstance(self, Parametr_container):
+            for key in self._all_options():
+                for inner_key in Parametr_container._recursion_view(
+                        self.__getattribute__(key),
+                        str(composite_key) + '  ' + str(key),
+                ):
+                    yield inner_key
+        # elif isinstance(self, dict):
+        #     for key in self:
+        #         for inner_key in Parametr_container._recursion_view(
+        #                 self[key],
+        #                 str(composite_key) + '  ' + str(key),
+        #         ):
+        #             yield inner_key
+        else:
+            yield (self, composite_key)
+
+    @staticmethod
+    def _input(parametr):
+        if parametr is None:
+            while parametr != 'q':
+                parametr = input(f'Set {parametr=}, to quit - q:')
+        return parametr
