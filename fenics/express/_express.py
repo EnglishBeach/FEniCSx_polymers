@@ -3,6 +3,7 @@ import numpy as _np
 import shutil as _shutil
 import os as _os
 from tqdm import tqdm as _tqdm
+import jsonpickle as _jp
 
 from matplotlib.ticker import FormatStrFormatter as _FormatStrFormatter
 import matplotlib.pyplot as _plt
@@ -123,20 +124,24 @@ def get_view(func, variables):
 
 class Saver:
 
-    def __init__(self, data: str):
-        self.saved = {'Data': data}
+    def __init__(self, to_save: dict):
+        self.data = {}
+        self.data.update(to_save)
 
     def __call__(self, to_save: dict):
-        self.saved.update({key: str(to_save[key]) for key in to_save})
+        self.data.update({key: str(to_save[key]) for key in to_save})
 
     @property
-    def data(self, ):
+    def text(self, ):
         return '\n'.join([
-            f'{title:-^100}' + '\n' + self.saved[title] for title in self.saved
+            f'{title:-^100}' + '\n' + self.data[title] for title in self.data
         ])
 
     def print_full(self):
-        print(self.data)
+        print(self.text)
+
+
+
 
 
 def SolveTimeDependent_1D(
@@ -144,11 +149,12 @@ def SolveTimeDependent_1D(
     time_line,
     change_func,
     save_func,
-    DATA,
     domain,
+    time_check=None,
     save=False,
     saver: Saver = None,
-    time_check=None,
+    sol_name=None,
+    file_name=None,
 ):
     time_steps = _tqdm(
         desc=f'Solving PDE. Time:{0:.3f}',
@@ -160,34 +166,35 @@ def SolveTimeDependent_1D(
             problem.solve()
             change_func()
     else:
-        sol_name = DATA.save_confs.dir + DATA.save_confs.solution_name
+        assert saver is not None
         try:
             _shutil.rmtree(sol_name)
         except:
             pass
         if not _os.path.isdir(sol_name): _os.mkdir(sol_name)
-        save_path = sol_name + '/' + DATA.save_confs.file_name
+        save_path = sol_name + '/' + file_name
 
-        assert saver is not None
-        with open(sol_name + '/annotation.txt', 'w+') as file:
-            file.write(saver.data)
+
+
 
         with _io.XDMFFile(domain.comm, save_path + '.xdmf', 'w') as file:
 
             file.write_mesh(domain)
 
             for step in time_steps:
-                if step in DATA.time.check:
+                if step in time_check:
                     time_steps.set_description(f'Solving PDE. Time:{step:.2f}')
                     save_func(file, step)
 
                 problem.solve()
                 change_func()
 
-        with open(sol_name + '/annotation.txt', 'a') as file:
-            elapsed = time_steps.format_dict['elapsed']
-            total_time = time_steps.format_interval(elapsed)
-            file.write('\n'*2 + f'STATUS: SOLVED \nTOTAL TIME: {total_time}')
+        elapsed = time_steps.format_dict['elapsed']
+        total_time = time_steps.format_interval(elapsed)
+        saver({'Solve status': f'SOLVED \nTOTAL TIME: {total_time}'})
+        with open(sol_name + '/annotation.txt', 'w+') as file:
+            file.write(saver.text)
+
 
 
 def func_plot1D(
