@@ -9,14 +9,14 @@ import jsonpickle as _jp
 class confs:
 
     def Get_confs(self):
-        names = list(filter(lambda x: ('__' not in x) and x[0].islower(), self.__dir__()))
+        names = list(filter(lambda x: ( x[0]!='_') and x[0].islower(), self.__dir__()))
         return {name: self.__getattribute__(name) for name in names}
 
     @property
     def Info(self):
         return {
             compound_key.strip(): value for value,
-            compound_key in self._recursion_view__()
+            compound_key in self._recursion_view()
         }
 
     def __repr__(self):
@@ -26,17 +26,17 @@ class confs:
         ]
         return str('\n'.join(key_list))
 
-    def _recursion_view__(self, keys=''):
+    def _recursion_view(self, keys=''):
         if isinstance(self, confs):
             for key in self.Get_confs():
-                for inner_key in confs._recursion_view__(
+                for inner_key in confs._recursion_view(
                         self.__getattribute__(key),
                         str(keys) + '  ' + str(key),
                 ):
                     yield inner_key
         elif isinstance(self, dict):
             for key in self:
-                for inner_key in confs._recursion_view__(
+                for inner_key in confs._recursion_view(
                         self[key],
                         str(keys) + '  ' + str(key),
                 ):
@@ -105,19 +105,28 @@ class save_confs(confs):
     file_name = 'solve'
     dir = '/home/Solves/'
 
-    def __init__(self, name=None, desc=None):
-        if name is not None:
-            self.solution_name = name
-            self.description = desc
-        else:
-            while True:
-                self.solution_name = input('Set name')
-                if self.solution_name != '': break
+    # def __init__(self, name=None, desc=None):
+    #     if name is not None:
+    #         self.solution_name = name
+    #         self.description = desc
+    #     else:
+    #         while True:
+    #             self.solution_name = input('Set name')
+    #             if self.solution_name != '': break
 
-            while True:
-                self.description = input('Set description')
-                if self.description != '': break
+    #         while True:
+    #             self.description = input('Set description')
+    #             if self.description != '': break
 
+    def _need_input(self,parametr):
+        if parametr is None:
+            while parametr !='q':
+                parametr = input(f'Set {parametr=}, to quit - q:')
+
+    def __init__(self,name=None,desc=1):
+        self.name = name
+        self.desc = desc
+        self._need_input(self.name)
 
 class Data(confs):
     solver_confs = solver_confs()
@@ -131,26 +140,3 @@ class Data(confs):
 
     def __init__(self, *args, **kwargs) -> None:
         self.save_confs = save_confs(*args, **kwargs)
-
-    # def dump(self,save=False):
-
-    #     consts = CONST.copy()
-    #     DATA.dump.consts = {key: repr_str(value) for key, value in consts.items()}
-    #     consts.update({'LIGHT': LIHGT})
-    #     DATA.dump.equations = {
-    #         key: repr_str(value, consts)
-    #         for key, value in EQUATION.items()
-    #     }
-
-    #         if not save:
-    #             print(DATA.dump.EQUATION_N)
-    #             print('*' * 80)
-    #             print(DATA.dump.EQUATION_P)
-    #         else:
-    #             with open(
-    #                 self.save_confs.dir_save + self.save_confs.save_name + self.save_confs.file_name +
-    #                 '_anotaton.txt',
-    #                 'w',
-    #             ) as annotation:
-    #                 annotation.write(jp.encode(self, numeric_keys=True, indent=4))
-    #         pass
