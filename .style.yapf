@@ -1,6 +1,6 @@
 [style]
 column_limit = 80
-spaces_before_comment=5
+spaces_before_comment=8
 
 NO_SPACES_AROUND_SELECTED_BINARY_OPERATORS = |
 ARITHMETIC_PRECEDENCE_INDICATION=true
