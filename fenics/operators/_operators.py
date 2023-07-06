@@ -43,23 +43,7 @@ inner = _Infix(_ufl.inner)
 And = _Infix(_ufl.And)
 
 
-def vector(*args):
-    return _ufl.as_vector(tuple(args))
-
-
-def I(func_like):
-    """Create matrix Identity dimension of func_like
-
-    Args:
-        func_like (Function): Give geometric dimension
-
-    Returns:
-        Tensor: Identity
-    """
-    return _ufl.Identity(func_like.geometric_dimension())
-
-
-# Functions:
+# Methods:
 def get_space_dim(space):
     """Get dimensions of X on space
 
@@ -122,6 +106,23 @@ def create_facets(domain):
     return ds
 
 
+# Functions
+def vector(*args):
+    return _ufl.as_vector(tuple(args))
+
+
+def I(func_like):
+    """Create matrix Identity dimension of func_like
+
+    Args:
+        func_like (Function): Give geometric dimension
+
+    Returns:
+        Tensor: Identity
+    """
+    return _ufl.Identity(func_like.geometric_dimension())
+
+
 class Function:
     """Function on new space. Default = 0
 
@@ -143,7 +144,7 @@ class Function:
         cords = _ufl.SpatialCoordinate(space)
 
         if form_type == ('dolfinx.fem.function.Function'):
-            expression = Function.from_fem(space, cords, form)
+            expression = Function.from_fem(form)
 
         elif form_type == ('dolfinx.fem.function.Constant'):
             expression = Function.from_constant(space, cords, form)
@@ -152,10 +153,10 @@ class Function:
             expression = Function.from_ufl(space, cords, form)
 
         elif form_type == 'function':
-            expression = Function.from_function(space, cords, form)
+            expression = Function.from_function(form)
 
         elif form_type == ('dolfinx.fem.function.Expression'):
-            expression = Function.from_expression(space, cords, form)
+            expression = Function.from_expression(form)
 
         elif not callable(form):
             expression = Function.from_number(space, cords, form)
@@ -203,15 +204,15 @@ class Function:
         return expression
 
     @staticmethod
-    def from_fem(space, cords, form):
+    def from_fem(form):
         return form
 
     @staticmethod
-    def from_function(space, cords, form):
+    def from_function(form):
         return form
 
     @staticmethod
-    def from_expression(space, cords, form):
+    def from_expression(form):
         return form
 
 
@@ -234,6 +235,7 @@ class Constant:
     ):
 
         return _fem.Constant(domain_space, const_type(const))
+
 
 class DirichletBC:
     """Create Dirichlet condition.
@@ -322,10 +324,10 @@ class NonlinearProblem:
     # TODO: Make succession
     def __init__(
         self,
-        F: _ufl.Form,
+        equation: _ufl.Form,
         bcs: list,
-        u: _fem.Function,
-        J: _ufl.Form = None,
+        func: _fem.Function,
+        Jacobian: _ufl.Form = None,
         solve_options={
             'convergence': 'incremental', 'tolerance': 1E-6
         },
@@ -337,24 +339,25 @@ class NonlinearProblem:
         form_compiler_options={},
         jit_options={},
     ):
-        self._u = u
+        self._function = func
         self.bcs = bcs
 
-        pr = _fem.petsc.NonlinearProblem(
-            F=F,
-            u=self._u,
+        # Make problem
+        problem = _fem.petsc.NonlinearProblem(
+            F=equation,
+            u=self._function,
             bcs=self.bcs,
-            J=J,
+            J=Jacobian,
             form_compiler_params=form_compiler_options,
             jit_params=jit_options,
         )
-        self._a = pr.a
-        self._L = pr.L
+        self._linear_form = problem.a
+        self._bilinear_form = problem.L
 
         # Creating solver
         self._solver = _nls.petsc.NewtonSolver(
-            self._u.function_space.mesh.comm,
-            pr,
+            self._function.function_space.mesh.comm,
+            problem,
         )
         self.set_options(
             petsc_options=petsc_options,
@@ -367,10 +370,10 @@ class NonlinearProblem:
 
         ksp = self._solver.krylov_solver
         problem_prefix = ksp.getOptionsPrefix()
-        opts = _fem.petsc.PETSc.Options()
-        opts.prefixPush(problem_prefix)
-        for k, v in petsc_options.items():
-            opts[k] = v
+        options = _fem.petsc.PETSc.Options()
+        options.prefixPush(problem_prefix)
+        for key, value in petsc_options.items():
+            options[key] = value
         ksp.setFromOptions()
 
     def solve(self):
@@ -379,7 +382,7 @@ class NonlinearProblem:
         Returns:
             fem.Function: Solved function
         """
-        result = self._solver.solve(self._u)
+        result = self._solver.solve(self._function)
         return result
 
     @staticmethod
@@ -398,11 +401,11 @@ class NonlinearProblem:
         return self._solver
 
     @property
-    def L(self) -> _fem.FormMetaClass:
+    def linear_form(self) -> _fem.FormMetaClass:
         """The compiled linear form"""
-        return self._L
+        return self._bilinear_form
 
     @property
-    def a(self) -> _fem.FormMetaClass:
+    def bilinear_form(self) -> _fem.FormMetaClass:
         """The compiled bilinear form"""
-        return self._a
+        return self._linear_form
