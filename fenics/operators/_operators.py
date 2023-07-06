@@ -87,7 +87,7 @@ def create_FacetTags_boundary(domain, bound_markers):
 
     return facet_tags
 
-
+# FIXME: need expand
 def set_connectivity(domain):
     """Need to compute facets to Boundary value
 
@@ -99,11 +99,10 @@ def set_connectivity(domain):
         domain.topology.dim,
     )
 
-
-def create_facets(domain):
+# FIXME: need expand
+def create_ds(domain):
     set_connectivity(domain)
-    ds = Measure("ds", domain=domain)
-    return ds
+    return Measure("ds", domain=domain)
 
 
 # Functions
