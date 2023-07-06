@@ -4,6 +4,11 @@ Base module for simple set up study and solving
 import numpy as _np
 
 import ufl as _ufl
+from dolfinx import fem as _fem
+from dolfinx import nls as _nls
+
+from dolfinx import mesh
+from mpi4py import MPI
 from ufl import FacetNormal, Measure, SpatialCoordinate
 from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions
 from ufl import conditional
@@ -13,12 +18,7 @@ from ufl import split, nabla_div, nabla_grad, grad, div
 from ufl import as_matrix as matrix
 from ufl import exp, sym, tr, sqrt, ln, sin, cos
 from ufl import dx
-
-from dolfinx import mesh
-from dolfinx import fem as _fem
-from dolfinx import nls as _nls
 from dolfinx.fem import FunctionSpace
-from mpi4py import MPI
 
 
 # Operators
@@ -409,3 +409,65 @@ class NonlinearProblem:
     def bilinear_form(self) -> _fem.FormMetaClass:
         """The compiled bilinear form"""
         return self._linear_form
+
+
+def make_space(
+    domain: mesh.Mesh,
+    elements: dict,
+):
+    """
+    Make function space and subspaces from dict of element types
+
+    Args:
+        domain (dolfinx.mesh.Mesh): Domain
+        elements (dict): {'variable' : element type}
+
+    Returns:
+        dict: {'space': fem.MixedFunctionSpace, 'subspaces': [fem.Subspace] , 'coordinates' : SpatialCoordinate}
+    """
+    space = FunctionSpace(
+        mesh=domain,
+        element=_ufl.MixedElement(*[elements[var] for var in elements]),
+    )
+
+    variables = list(elements.keys())
+    sub_spaces = [
+        space.sub(variables.index(var)).collapse()[0] for var in variables
+    ]
+    return {
+        'space': space,
+        'subspaces': sub_spaces,
+        'coordinates': (list(_ufl.SpatialCoordinate(space)) + [None] * 2)[:3],
+    }
+
+
+def make_functions(
+    space: _fem.FunctionSpace,
+    variables: list,
+    function_index: int,
+):
+    """
+    Make functions and their components on function space
+
+    Args:
+        space (fem.FunctionSpace): Sunction space
+        variables (list): List of variables
+        function_index (int): Function index
+
+    Returns:
+        dict: {'function': fem.Function, 'sub_functions': [fem.Subfunction],'variables': [subfunction indexes]}
+    """
+    func = Function(space)
+    func.name = 'Function_' + str(function_index)
+
+    sub_funcs = [func.sub(variables.index(var)) for var in variables]
+    for sub_func, var in zip(sub_funcs, variables):
+        sub_func.name = var + str(function_index)
+
+    func_splitted = split(func)
+    func_variables = [func_splitted[variables.index(var)] for var in variables]
+    return {
+        'function': func,
+        'subfunctions': sub_funcs,
+        'variables': func_variables,
+    }
