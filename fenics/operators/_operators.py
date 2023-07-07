@@ -4,6 +4,11 @@ Base module for simple set up study and solving
 import numpy as _np
 
 import ufl as _ufl
+from dolfinx import fem as _fem
+from dolfinx import nls as _nls
+
+from dolfinx import mesh
+from mpi4py import MPI
 from ufl import FacetNormal, Measure, SpatialCoordinate
 from ufl import TrialFunction, TestFunction, TrialFunctions, TestFunctions
 from ufl import conditional
@@ -13,12 +18,7 @@ from ufl import split, nabla_div, nabla_grad, grad, div
 from ufl import as_matrix as matrix
 from ufl import exp, sym, tr, sqrt, ln, sin, cos
 from ufl import dx
-
-from dolfinx import mesh
-from dolfinx import fem as _fem
-from dolfinx import nls as _nls
 from dolfinx.fem import FunctionSpace
-from mpi4py import MPI
 
 
 # Operators
@@ -43,23 +43,7 @@ inner = _Infix(_ufl.inner)
 And = _Infix(_ufl.And)
 
 
-def vector(*args):
-    return _ufl.as_vector(tuple(args))
-
-
-def I(func_like):
-    """Create matrix Identity dimension of func_like
-
-    Args:
-        func_like (Function): Give geometric dimension
-
-    Returns:
-        Tensor: Identity
-    """
-    return _ufl.Identity(func_like.geometric_dimension())
-
-
-# Functions:
+# Methods:
 def get_space_dim(space):
     """Get dimensions of X on space
 
@@ -103,7 +87,7 @@ def create_FacetTags_boundary(domain, bound_markers):
 
     return facet_tags
 
-
+# FIXME: need expand
 def set_connectivity(domain):
     """Need to compute facets to Boundary value
 
@@ -115,11 +99,27 @@ def set_connectivity(domain):
         domain.topology.dim,
     )
 
-
-def create_facets(domain):
+# FIXME: need expand
+def create_ds(domain):
     set_connectivity(domain)
-    ds = Measure("ds", domain=domain)
-    return ds
+    return Measure("ds", domain=domain)
+
+
+# Functions
+def vector(*args):
+    return _ufl.as_vector(tuple(args))
+
+
+def I(func_like):
+    """Create matrix Identity dimension of func_like
+
+    Args:
+        func_like (Function): Give geometric dimension
+
+    Returns:
+        Tensor: Identity
+    """
+    return _ufl.Identity(func_like.geometric_dimension())
 
 
 class Function:
@@ -143,7 +143,7 @@ class Function:
         cords = _ufl.SpatialCoordinate(space)
 
         if form_type == ('dolfinx.fem.function.Function'):
-            expression = Function.from_fem(space, cords, form)
+            expression = Function.from_fem(form)
 
         elif form_type == ('dolfinx.fem.function.Constant'):
             expression = Function.from_constant(space, cords, form)
@@ -152,10 +152,10 @@ class Function:
             expression = Function.from_ufl(space, cords, form)
 
         elif form_type == 'function':
-            expression = Function.from_function(space, cords, form)
+            expression = Function.from_function(form)
 
         elif form_type == ('dolfinx.fem.function.Expression'):
-            expression = Function.from_expression(space, cords, form)
+            expression = Function.from_expression(form)
 
         elif not callable(form):
             expression = Function.from_number(space, cords, form)
@@ -203,15 +203,15 @@ class Function:
         return expression
 
     @staticmethod
-    def from_fem(space, cords, form):
+    def from_fem(form):
         return form
 
     @staticmethod
-    def from_function(space, cords, form):
+    def from_function(form):
         return form
 
     @staticmethod
-    def from_expression(space, cords, form):
+    def from_expression(form):
         return form
 
 
@@ -234,6 +234,7 @@ class Constant:
     ):
 
         return _fem.Constant(domain_space, const_type(const))
+
 
 class DirichletBC:
     """Create Dirichlet condition.
@@ -322,10 +323,10 @@ class NonlinearProblem:
     # TODO: Make succession
     def __init__(
         self,
-        F: _ufl.Form,
+        equation: _ufl.Form,
         bcs: list,
-        u: _fem.Function,
-        J: _ufl.Form = None,
+        func: _fem.Function,
+        Jacobian: _ufl.Form = None,
         solve_options={
             'convergence': 'incremental', 'tolerance': 1E-6
         },
@@ -337,24 +338,25 @@ class NonlinearProblem:
         form_compiler_options={},
         jit_options={},
     ):
-        self._u = u
+        self._function = func
         self.bcs = bcs
 
-        pr = _fem.petsc.NonlinearProblem(
-            F=F,
-            u=self._u,
+        # Make problem
+        problem = _fem.petsc.NonlinearProblem(
+            F=equation,
+            u=self._function,
             bcs=self.bcs,
-            J=J,
+            J=Jacobian,
             form_compiler_params=form_compiler_options,
             jit_params=jit_options,
         )
-        self._a = pr.a
-        self._L = pr.L
+        self._linear_form = problem.a
+        self._bilinear_form = problem.L
 
         # Creating solver
         self._solver = _nls.petsc.NewtonSolver(
-            self._u.function_space.mesh.comm,
-            pr,
+            self._function.function_space.mesh.comm,
+            problem,
         )
         self.set_options(
             petsc_options=petsc_options,
@@ -367,10 +369,10 @@ class NonlinearProblem:
 
         ksp = self._solver.krylov_solver
         problem_prefix = ksp.getOptionsPrefix()
-        opts = _fem.petsc.PETSc.Options()
-        opts.prefixPush(problem_prefix)
-        for k, v in petsc_options.items():
-            opts[k] = v
+        options = _fem.petsc.PETSc.Options()
+        options.prefixPush(problem_prefix)
+        for key, value in petsc_options.items():
+            options[key] = value
         ksp.setFromOptions()
 
     def solve(self):
@@ -379,7 +381,7 @@ class NonlinearProblem:
         Returns:
             fem.Function: Solved function
         """
-        result = self._solver.solve(self._u)
+        result = self._solver.solve(self._function)
         return result
 
     @staticmethod
@@ -398,11 +400,73 @@ class NonlinearProblem:
         return self._solver
 
     @property
-    def L(self) -> _fem.FormMetaClass:
+    def linear_form(self) -> _fem.FormMetaClass:
         """The compiled linear form"""
-        return self._L
+        return self._bilinear_form
 
     @property
-    def a(self) -> _fem.FormMetaClass:
+    def bilinear_form(self) -> _fem.FormMetaClass:
         """The compiled bilinear form"""
-        return self._a
+        return self._linear_form
+
+
+def make_space(
+    domain: mesh.Mesh,
+    elements: dict,
+):
+    """
+    Make function space and subspaces from dict of element types
+
+    Args:
+        domain (dolfinx.mesh.Mesh): Domain
+        elements (dict): {'variable' : element type}
+
+    Returns:
+        dict: {'space': fem.MixedFunctionSpace, 'subspaces': [fem.Subspace] , 'coordinates' : SpatialCoordinate}
+    """
+    space = FunctionSpace(
+        mesh=domain,
+        element=_ufl.MixedElement(*[elements[var] for var in elements]),
+    )
+
+    variables = list(elements.keys())
+    sub_spaces = [
+        space.sub(variables.index(var)).collapse()[0] for var in variables
+    ]
+    return {
+        'space': space,
+        'subspaces': sub_spaces,
+        'coordinates': (list(_ufl.SpatialCoordinate(space)) + [None] * 2)[:3],
+    }
+
+
+def make_functions(
+    space: _fem.FunctionSpace,
+    variables: list,
+    function_index: int,
+):
+    """
+    Make functions and their components on function space
+
+    Args:
+        space (fem.FunctionSpace): Sunction space
+        variables (list): List of variables
+        function_index (int): Function index
+
+    Returns:
+        dict: {'function': fem.Function, 'sub_functions': [fem.Subfunction],'variables': [subfunction indexes]}
+    """
+    func = Function(space)
+    func.name = 'Function_' + str(function_index)
+
+    sub_funcs = [func.sub(variables.index(var)) for var in variables]
+    for sub_func, var in zip(sub_funcs, variables):
+        sub_func.name = var + str(function_index)
+
+    func_splitted = split(func)
+    func_variables = [func_splitted[variables.index(var)] for var in variables]
+    return {
+        'function': func,
+        'subfunctions': sub_funcs,
+        'variables': func_variables,
+    }

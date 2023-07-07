@@ -1,0 +1,20 @@
+FROM dolfinx/dolfinx:nightly
+LABEL version=0.1
+RUN pip install jsonpickle \
+debugpy \
+platformdirs \
+jupyter_core \
+importlib-metadata \
+jupyter_client \
+comm \
+pyzmq \
+psutil \
+tqdm \
+tornado \
+peewee \
+yapf \
+ipykernel \
+nest-asyncio \
+zipp
+WORKDIR /home
+EXPOSE 3306

@@ -1,84 +1,13 @@
 import re as _re
 import numpy as _np
 
-
 from matplotlib.ticker import FormatStrFormatter as _FormatStrFormatter
 import matplotlib.pyplot as _plt
 import ufl as _ufl
 import dolfinx as _dolfinx
-from dolfinx import io as _io
 from dolfinx import fem as _fem
 
 from .. import operators as _fn
-
-
-def make_variables(
-    domain: _dolfinx.mesh.Mesh,
-    variables: str,
-    variable_elements: dict,
-    n_variable_versions: int,
-):
-    """
-    Make functions and variable, which can used in study
-
-    Args:
-        domain (dolfinx.mesh.Mesh): Domain
-        variables (str): Comm! sepatated varables string 'a,b,c,d'
-        variable_elements (dict): ufl.Elenent for every variable {'a':ufl.Element}
-        n_variable_versions (int): How much steps method use to time discretization
-        or how mush similar functions you need (a,a1,a2,a3...)
-
-    Returns (tuple):
-        {   'space': fem.Space,
-            'subspaces': [list of subspaces],
-            'coordinates': [3 spatial coordinates]}
-        [list of dicts for every time step in method:
-        {   'function': fem.Function,
-            'subfunctions': [list of subfunctions],
-            'variables': [list of variables connected with subfunctions],
-            'version': variable version number,
-        }]
-    """
-
-    variables = list(variables.strip().split(','))
-    assert len(variables) == len(set(variables))
-
-    space = _fn.FunctionSpace(
-        mesh=domain,
-        element=_ufl.MixedElement(
-            *[variable_elements[var] for var in variables]),
-    )
-    subspaces = [
-        space.sub(variables.index(var)).collapse()[0] for var in variables
-    ]
-    space_info = {
-        'space': space,
-        'subspaces': subspaces,
-        'coordinates': (list(_ufl.SpatialCoordinate(space)) + [None] * 2)[:3],
-    }
-
-    function_info = []
-    for version in range(n_variable_versions - 1, -1, -1):
-
-        step_info = {'version': version}
-
-        func = _fn.Function(space)
-        func.name = 'Function_' + str(version)
-        step_info.update({'function': func})
-
-        sub_funcs = [func.sub(variables.index(var)) for var in variables]
-        for sub_func, var in zip(sub_funcs, variables):
-            sub_func.name = var + str(version)
-        step_info.update({'subfunctions': sub_funcs})
-
-        func_splitted = _fn.split(func)
-        func_variables = [
-            func_splitted[variables.index(var)] for var in variables
-        ]
-        step_info.update({'variables': func_variables})
-
-        function_info.append(step_info)
-    return space_info, function_info
 
 
 def get_view(func, variables):
@@ -152,20 +81,23 @@ def func_plot1D(
 
 class ArrayFunc:
 
-    def __init__(self, func: _fem.Function, name=None):
-        self._fem = func
-        x_line = func.function_space.tabulate_dof_coordinates()[:, 0]
-        self._data = _np.array([
-            x_line * 0,
-            x_line,
-            func.x.array,
-        ]).T
-        self.sort(1)
-        self._data[:, 0] = range(len(x_line))
+    def __init__(self, func, name=None):
 
-        self.cord,self.x,self.y = self._data[:,0],self._data[:,1],self._data[:,2]
-        self.name = func.name
-        if name != None: self.name = name
+        if isinstance(func, _fem.Function):
+            x_line = func.function_space.tabulate_dof_coordinates()[:, 0]
+            y_line = func.x.array
+            self.name = func.name
+        else:
+            x_line = func[:, 0]
+            y_line = func[:, 1]
+
+        self.name = name
+
+        self._data = _np.array([x_line, x_line, y_line]).T
+        self.cord, self.x, self.y = self[:, 0], self[:, 1], self[:, 2]
+
+        self.sort()
+        self.cord[:] = range(len(x_line))
 
     def __len__(self):
         return len(self.x)
@@ -179,19 +111,44 @@ class ArrayFunc:
 
         return string + point_str
 
-    def sort(self, pos=0):
-        self._data[:] = self._data[_np.argsort(self._data[:, pos])]
+    def __getitem__(self, position):
+        return self._data[position]
+
+    def __setitem__(self, i, value):
+        self._data[i] = value
+
+    def copy(self):
+        coped = ArrayFunc(_np.array([self.cord, self.cord]).T)
+        coped[:] = self[:]
+        coped.name = self.name
+        return coped
+
+    def sort(self):
+        self._data[:] = _np.array(sorted(self._data, key=lambda x: x[0]))
 
     def translate(self, point_0):
-        cord_new = (self.cord - point_0)
-        self.cord[:] = cord_new - len(self) * (cord_new // (len(self)))
-        self.sort()
+        new_func = self.copy()
+
+        cord_new = (new_func.cord - point_0)
+        new_func.cord[:] = cord_new - len(new_func) * (cord_new //
+                                                       (len(new_func)))
+        new_func.sort()
+        return new_func
+
+    def reverse(self):
+        new_func = self.copy()
+
+        new_func.cord[:] = -new_func.cord
+        new_func.cord[:] += len(new_func)
+        new_func.sort()
+        return new_func
 
     def mirror(self, point_0):
-        self.translate(point_0)
-        self.cord[:] = -self.cord
-        self.cord[:] += len(self)
-        self.sort()
+        new_func = self.translate(point_0)
+        new_func = new_func.reverse()
+        # new_func = new_func.translate(point_0)
+        new_func.sort()
+        return new_func
 
     def _find_middle_cord(self, x_middle, add_point):
         middle_cord = int(
@@ -233,15 +190,18 @@ class ArrayFunc:
         )
 
     def check_symmetry(self, x_middle, point_add=0):
-        print('Rule: Right - left')
-        dif = ArrayFunc(func=self._fem, name=self.name)
+
+        dif = self.copy()
         cord_middle = self._find_middle_cord(x_middle, point_add)
 
-        dif.mirror(cord_middle)
-        dif.translate(-cord_middle)
+        dif = dif.mirror(cord_middle)
+        dif = dif.translate(-cord_middle)
+
         aver_y = max(self.y) - min(self.y)
         dif.y[:] = (dif.y - self.y) / aver_y * 100
         dif.y[dif.cord >= cord_middle] = 0
+
+        print(f'Rule: Right - left at x={x_middle}, point = {cord_middle}')
         dif._array_plots(cord_middle)
         self._array_plots(cord_middle)
 
@@ -282,12 +242,12 @@ def func_plot2D(
     return ax
 
 
-class Parametr_container:
+class ParameterClass:
 
     def __repr__(self):
         key_list = []
         for composite_key, value in self.Options.items():
-            add_str = f'\n   -- {composite_key}: \n'
+            add_str = f'{composite_key}: '
 
             if not isinstance(value, _np.ndarray|range):
                 value_str = f'{value}'
@@ -318,13 +278,14 @@ class Parametr_container:
         return {option: self.__getattribute__(option) for option in options}
 
     def _recursion_view(self, composite_key=''):
-        if isinstance(self, Parametr_container):
+        if isinstance(self, ParameterClass):
             for key in self._all_options():
-                for inner_key in Parametr_container._recursion_view(
+                for inner_key in ParameterClass._recursion_view(
                         self.__getattribute__(key),
                         str(composite_key) + '  ' + str(key),
                 ):
                     yield inner_key
+        # Dicts store as dicts and include in composite key
         # elif isinstance(self, dict):
         #     for key in self:
         #         for inner_key in Parametr_container._recursion_view(

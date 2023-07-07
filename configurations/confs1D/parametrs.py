@@ -3,10 +3,10 @@ Standart parametrs for study.
 """
 
 import numpy as _np
-from fenics.express import Parametr_container
+from fenics.express import ParameterClass
 
 
-class solver_confs(Parametr_container):
+class SolverConfs(ParameterClass):
     """
     Parametrs from Base.Nonlinear_problem
     """
@@ -24,7 +24,7 @@ class solver_confs(Parametr_container):
     jit_options = {}
 
 
-class mesh_confs(Parametr_container):
+class MeshConfs(ParameterClass):
     left = 0
     right = 1
     intervals = 100
@@ -32,7 +32,7 @@ class mesh_confs(Parametr_container):
     family = 'CG'
 
 
-class rates(Parametr_container):
+class Rates(ParameterClass):
     general = 0.01
     P_step = 0.13
     a = 0.1
@@ -41,24 +41,24 @@ class rates(Parametr_container):
     gamma = 4
 
 
-class light_confs(Parametr_container):
+class LightConfs(ParameterClass):
     type = 'stepwise'
     left = 0.4
     right = 0.6
     smoothing = 100
 
 
-class initial(Parametr_container):
+class Initial(ParameterClass):
     n = 0.2
     p = 0.001
 
 
-class time(Parametr_container):
+class Time(ParameterClass):
     line = _np.linspace(0, 1, 101)
     check = line[::10]
 
 
-class save_confs(Parametr_container):
+class SaveConfs(ParameterClass):
     file_name = 'solve'
     dir = '/home/Solves/'
 
@@ -67,15 +67,15 @@ class save_confs(Parametr_container):
         self.desc = self._input(desc)
 
 
-class Data(Parametr_container):
-    solver_confs = solver_confs()
-    mesh_confs = mesh_confs()
+class Data(ParameterClass):
+    solver_confs = SolverConfs()
+    mesh_confs = MeshConfs()
     bcs = {'type': 'close'}
-    time = time()
+    time = Time()
 
-    rates = rates()
-    light_confs = light_confs()
-    initial = initial()
+    rates = Rates()
+    light_confs = LightConfs()
+    initial = Initial()
 
     def __init__(self, *args, **kwargs) -> None:
-        self.save_confs = save_confs(*args, **kwargs)
+        self.save_confs = SaveConfs(*args, **kwargs)
