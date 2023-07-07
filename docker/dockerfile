@@ -1,6 +1,6 @@
-FROM dolfinx/dolfinx:stable
+FROM dolfinx/dolfinx:nightly
 LABEL version=0.1
-RUN 'pip install --no-cache-dir jsonpickle \
+RUN pip install jsonpickle \
 debugpy \
 platformdirs \
 jupyter_core \
@@ -15,7 +15,6 @@ peewee \
 yapf \
 ipykernel \
 nest-asyncio \
-zipp'
+zipp
 WORKDIR /home
-COPY . .
 EXPOSE 3306
