@@ -1,25 +1,33 @@
 # FEniCSx for polymers
-This is simple common usage API for FEniCSx - finite element analysis framework for python. There is example of complex physical study of photopolymerization here. See for another information:
-https://github.com/EnglishBeach/COMSOL_polymers. This study about physical aspects of diffusion processes in solution. I use time-depended solver and solve it on 1D interval. 
+FEniCSx for polymers is simple API for FEniCSx - finite element analysis framework for python. See https://github.com/FEniCS/dolfinx. Fenics package is facade for low level dolfinx lib and contains high level functions for quick set up general structures for FEniCSx solvers. I created docker image with all necessary dependencies. 
+
+This is my university course work of mathematical modeling of diffusion processes in multicomponent photopolymerization system. See for another information about chemical aspects: https://github.com/EnglishBeach/COMSOL_polymers. 
 
 # Structure
 * fenics - API forlder:
   * operators - functions, different operators from ufl and nessesary clases for set up study
   * express - constructors and tools for simple build and configure common studies
+  * distributions - module collecting different form distributions
 * Solver.ipynb - solver for diffusion processes of photopolymerization
-* parametrs - parametrs for 1D and another tasks with boundary conditious and so on
+* parametrs - parametrs for 1D and another tasks with boundary conditions and so on
 
 # Usage
-Because this project depends on FEniCsx: https://github.com/FEniCS/dolfinx. You neen usesimilar instructions for use thia api. Easiest way is Docker images:
+Easiest way is Docker images:
 ```shell
-docker run -ti dolfinx/dolfinx:stable
+docker run -ti englishbeach/fenics:v0.1
 ```
 For connecting:
 ```shell
-docker run --init -ti -p 8888:8888 dolfinx/lab:stable  # Access at http://localhost:8888
+docker run --init -ti -p 8888:8888 englishbeach/fenics:v0.1  # Access at http://localhost:8888
 ```
 
 # Changes:
 * corrected complicated parametrs set up
 * unify high and low level variables realisations: ufl.Expressions, fem.Functions, fem.Consstants and pythonic functions, floats
 * new tools for efficient solving and viewing results
+
+# Plans:
+* add setup for fenics package
+* add 2D support and relevant functions
+* add more API elements for another FEniCSx features
+* fix some bad errors in dolfinx functions (infite circle trying compile ufl form in function)
