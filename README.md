@@ -27,6 +27,7 @@ docker run --init -ti -p 8888:8888 englishbeach/fenics:v0.1  # Access at http://
 * new tools for efficient solving and viewing results
 
 # Plans:
+* Fix database for recording results
 * add setup for fenics package
 * add 2D support and relevant functions
 * add more API elements for another FEniCSx features
