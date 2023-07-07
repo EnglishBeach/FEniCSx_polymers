@@ -16,7 +16,7 @@ Easiest way is Docker images:
 ```shell
 docker run -ti englishbeach/fenics:v0.1
 ```
-For connecting:
+For network:
 ```shell
 docker run --init -ti -p 8888:8888 englishbeach/fenics:v0.1  # Access at http://localhost:8888
 ```
