@@ -3,3 +3,5 @@
 **/.vscode
 **/Old
 **/Others
+module_setup/build
+module_setup/fenics.egg-info
