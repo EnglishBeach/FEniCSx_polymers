@@ -1,3 +1,11 @@
 **/Solves
 **/__pycache__
 .vscode
+<<<<<<< HEAD
+=======
+Old/**
+Others/**
+Other/**
+module_setup/build
+**.egg-info
+>>>>>>> 92cf6a1 (fix module)
