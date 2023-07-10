@@ -16,7 +16,7 @@ yapf \
 ipykernel \
 nest-asyncio \
 zipp
-COPY ./module_setup /tmp/fenics
+COPY module_setup /tmp/fenics
 WORKDIR /tmp/fenics
 RUN pip install .
 EXPOSE 3306
