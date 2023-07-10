@@ -4,3 +4,5 @@
 Old/**
 Others/**
 Other/**
+module_setup/build
+**.egg-info
