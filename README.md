@@ -1,10 +1,8 @@
-# FEniCSx for polymers
-FEniCSx for polymers is simple API for FEniCSx - finite element analysis framework for python. See https://github.com/FEniCS/dolfinx. Fenics package is facade for low level dolfinx lib and contains high level functions for quick set up general structures for FEniCSx solvers. I created docker image with all necessary dependencies. 
-
-This is my university course work of mathematical modeling of diffusion processes in multicomponent photopolymerization system. See for another information about chemical aspects: https://github.com/EnglishBeach/COMSOL_polymers. 
+# FEniCSx-API
+FEniCSx-API is simple API for FEniCSx - finite element analysis framework for python. See https://github.com/FEniCS/dolfinx. Fenics package is facade for low level dolfinx lib and contains high level functions for quick set up general structures for FEniCSx solvers. 
 
 # Structure
-* fenics - API forlder:
+* fenics - API folder:
   * operators - functions, different operators from ufl and nessesary clases for set up study
   * express - constructors and tools for simple build and configure common studies
   * distributions - module collecting different form distributions
